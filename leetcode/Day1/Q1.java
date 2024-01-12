@@ -1,4 +1,7 @@
-public class Day1 {
+package leetcode.Day1;
+
+public class Q1 {
+    // 第62题，中等，动态规划
     public int uniquePaths(int m, int n) {
         int[][] dp=new int[m][n];
         for(int i=0;i<m;i++){
