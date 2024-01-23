@@ -10,5 +10,8 @@ public class test {
         String customer="ChenHao";
         Invoice invoice=new Invoice(orders,localDate,customer);
         extractMethod.printOwing(invoice);
+        System.out.println("--------------------------");
+        AfterExtract afterExtract=new AfterExtract();
+        afterExtract.printOwing(invoice);
     }
 }
