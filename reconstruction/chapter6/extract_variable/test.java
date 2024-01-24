@@ -10,5 +10,8 @@ public class test {
         AfterExtract afterExtract=new AfterExtract();
         double price1 = afterExtract.price(order);
         System.out.println(price1);
+        System.out.println("-----------------------------------");
+        Order2 order2=new Order2(20,10);
+        System.out.println(order2.price());
     }
 }
