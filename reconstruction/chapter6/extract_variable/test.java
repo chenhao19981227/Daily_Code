@@ -7,6 +7,8 @@ public class test {
         double price = extractVariable.price(order);
         System.out.println(price);
         System.out.println("----------------------------------");
-
+        AfterExtract afterExtract=new AfterExtract();
+        double price1 = afterExtract.price(order);
+        System.out.println(price1);
     }
 }
