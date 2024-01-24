@@ -10,5 +10,11 @@ public class test {
         for (String s : result.keySet()) {
             System.out.println(s+":"+result.get(s));
         }
+        System.out.println("-------------------------------");
+        AfterInline afterInline=new AfterInline();
+        Map<String, String> result2 = afterInline.reportLines(customer);
+        for (String s : result2.keySet()) {
+            System.out.println(s+":"+result2.get(s));
+        }
     }
 }
