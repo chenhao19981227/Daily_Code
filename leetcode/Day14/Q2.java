@@ -1,3 +1,6 @@
+import java.util.ArrayDeque;
+import java.util.Deque;
+
 class Q2 {
     public int[] asteroidCollision(int[] asteroids) {
         Deque<Integer> stack=new ArrayDeque<>();

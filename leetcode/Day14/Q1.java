@@ -1,3 +1,6 @@
+import java.util.ArrayDeque;
+import java.util.Deque;
+
 class Q1 {
     public String removeStars(String s) {
         Deque<Character> stack = new ArrayDeque<>();
