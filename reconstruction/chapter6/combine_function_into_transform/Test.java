@@ -6,5 +6,10 @@ public class Test {
         test.client1();
         test.client2();
         test.client3();
+        System.out.println("---------------------------");
+        AfterCIFT test2=new AfterCIFT();
+        test2.client1();
+        test2.client2();;
+        test2.client3();
     }
 }
