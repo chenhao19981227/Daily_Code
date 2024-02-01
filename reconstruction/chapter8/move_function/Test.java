@@ -10,5 +10,13 @@ public class Test {
         System.out.println(account.bankCharge());
 
         System.out.println("---------------------------");
+
+
+        AccountMoveFunction accountMoveFunction=new AccountMoveFunction();
+        AccountTypeMoveFunction accountTypeMoveFunction=new AccountTypeMoveFunction();
+        accountTypeMoveFunction.setPremium(false);
+        accountMoveFunction.type=accountTypeMoveFunction;
+        accountMoveFunction.daysOverdrawn=10;
+        System.out.println(accountMoveFunction.bankCharge());
     }
 }
