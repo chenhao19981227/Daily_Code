@@ -5,7 +5,7 @@ import java.util.Arrays;
 import java.util.List;
 
 public class StreamDemo {
-    private static List<Author> getAuthors() {
+    public static List<Author> getAuthors() {
 //数据初始化
         Author author = new Author(1L, "蒙多", 33, "一个从菜刀中明悟哲理的祖安人", null);
         Author author2 = new Author(2L, "亚拉索", 15, "狂风也追逐不上他的思考速度", null);
