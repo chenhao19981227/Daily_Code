@@ -8,7 +8,6 @@ public class Q2 {
         int len=spells.length;
         int[] res=new int[len];
         for (int i = 0; i < len; i++) {
-            if((long) spells[i] *potions[potions.length-1]<success)continue;
             int min=binarySearch(potions,spells[i],success);
             res[i]=potions.length-min;
         }
@@ -17,24 +16,17 @@ public class Q2 {
     public int binarySearch(int[] potions,int spell,long success){
         int len=potions.length;
         int left=0,right=len-1;
+        int res=right+1;
         while (left<=right){
-            if(left==right){
-                if((long)spell*potions[left]>=success){
-                    return left;
-                }else {
-                    return left+1;
-                }
-            }
             int mid=(right-left)/2+left;
-            int potion=potions[mid];
-            long mul= (long) spell *potion;
-            if(mul<success){
-                left=mid+1;
-            }else{
+            if((long) potions[mid] *spell>=success){
+                res=mid;
                 right=mid-1;
+            }else {
+                left=mid+1;
             }
         }
-        return left;
+        return res;
     }
 
     public static void main(String[] args) {
