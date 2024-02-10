@@ -208,6 +208,8 @@ public class Practice4 {
 
 Java8的Stream使用的是函数式编程模式，如同它的名字一样，它可以被用来对集合或数组进行链状流式的操作。可以更方便的让我们对集合或数组操作。
 
+### **3.2** **案例数据准备**
+
 ~~~java
 @Data
 @NoArgsConstructor
@@ -276,7 +278,202 @@ public class StreamDemo {
 }
 ~~~
 
+### **3.3** **快速入门**
 
+#### **3.3.1** **需求**
 
+我们可以调用getAuthors方法获取到作家的集合。现在需要打印所有年龄小于18的作家的名字，并且要注意去重。
 
+#### **3.3.2** **实现**
+
+```java
+public static void main(String[] args) {
+    // 打印所有年龄小于18的作家，同时注意去重
+    List<Author> authors = getAuthors();
+    authors.stream()
+            .distinct()
+            .filter(author -> author.getAge()<18)
+            .forEach(author -> System.out.println(author.getName()));
+}
+```
+
+### **3.4** **常用操作**
+
+#### **3.4.1** **创建流**
+
+单列集合：`集合对象.stream()`
+
+~~~java
+List<Author> authors = getAuthors();
+Stream<Author> stream = authors.stream();
+~~~
+
+数组： `Arrays.stream(数组)` 或者使用 `Stream.of `来创建
+
+~~~java
+Integer[] arr = {1,2,3,4,5};
+Stream<Integer> stream = Arrays.stream(arr);
+Stream<Integer> stream2 = Stream.of(arr);
+~~~
+
+双列集合：转换成单列集合后再创建
+
+~~~java
+Map<String,Integer> map = new HashMap<>();
+map.put("蜡笔小新",19);
+map.put("黑子",17);
+map.put("日向翔阳",16);
+Stream<Map.Entry<String, Integer>> stream = map.entrySet().stream();
+~~~
+
+#### **3.4.2** **中间操作**
+
+##### **① filter**
+
+可以对流中的元素进行条件过滤，符合过滤条件的才能继续留在流中。
+
+例如：
+
+~~~java
+public class Filter {
+    public static void main(String[] args) {
+        List<Author> authors = StreamDemo.getAuthors();
+        // 打印所有姓名长度大于1的作家的姓名
+        authors.stream()
+                .distinct()
+                .filter(author -> author.getName().length()>1)
+                .forEach(author -> System.out.println(author.getName()));
+    }
+}
+~~~
+
+##### **② map**
+
+可以把对流中的元素进行转换或计算。
+
+例如：
+
+~~~java
+public class Map {
+    public static void main(String[] args) {
+        List<Author> authors = StreamDemo.getAuthors();
+        // 获取所有作家的姓名，并打印所有作家的姓名（转换）
+        authors.stream()
+                .map(author -> author.getName())
+                .forEach(name-> System.out.println(name));
+
+        // 获取所有作家的年龄，并增加10岁（转换+计算）
+        authors.stream()
+                .map(author -> author.getAge())
+                .map(age->age+10)
+                .forEach(age-> System.out.println(age));
+    }
+}
+~~~
+
+##### **③ distinct**
+
+可以去除流中的重复元素。
+
+例如：
+
+~~~java
+public class Distinct {
+    public static void main(String[] args) {
+        List<Author> authors = StreamDemo.getAuthors();
+        authors.stream()
+                .distinct()
+                .forEach(author -> System.out.println(author.getName()));
+    }
+}
+~~~
+
+##### **④ sorted**
+
+可以对流中的元素进行排序。
+
+例如：
+
+~~~java
+public class Sorted {
+    public static void main(String[] args) {
+        List<Author> authors = StreamDemo.getAuthors();
+        // 方法1：使用无参的sorted方法，这种方法需要Author实现Comparable,并重写其中的方法
+        authors.stream()
+                .distinct()
+                .sorted()
+                .forEach(author -> System.out.println(author.getAge()));
+        // 方法2：使用带参数sorted方法，在sorted方法中重写排序逻辑
+        authors.stream()
+                .distinct() .sorted((o1, o2) -> o2.getAge()-o1.getAge())
+                .forEach(author -> System.out.println(author.getAge()));
+    }
+}
+~~~
+
+##### **⑤ limit**
+
+可以设置流的最大长度，超出的部分将被抛弃。
+
+例如：
+
+~~~java
+public class Limit {
+    public static void main(String[] args) {
+        List<Author> authors = StreamDemo.getAuthors();
+        // 对流中的元素按照年龄进行降序排序，并且要求不能有重复的元素,然后打印其中年龄最大的两个作家的姓名
+        authors.stream()
+                .distinct()
+                .sorted(((o1, o2) -> o2.getAge()-o1.getAge()))
+                .limit(2)
+                .forEach(author -> System.out.println(author.getName()));
+    }
+}
+~~~
+
+##### **⑥ skip**
+
+跳过流中的前n个元素，返回剩下的元素
+
+例如：
+
+~~~java
+public class Skip {
+    public static void main(String[] args) {
+        List<Author> authors = StreamDemo.getAuthors();
+        // 打印除了年龄最大的作家外的其他作家，要求不能有重复元素，并且按照年龄降序排序
+        authors.stream()
+                .distinct()
+                .sorted(((o1, o2) -> o2.getAge()-o1.getAge()))
+                .skip(1)
+                .forEach(author -> System.out.println(author.getName()));
+    }
+}
+~~~
+
+##### **⑦ flatMap**
+
+map只能把一个对象转换成另一个对象来作为流中的元素。而flatMap可以把一个对象转换成多个对象作为流中的元素
+
+例如：
+
+~~~java
+public class FlatMap {
+    public static void main(String[] args) {
+        List<Author> authors = StreamDemo.getAuthors();
+        // 打印所有书籍的名字。要求对重复的元素进行去重
+        authors.stream()
+                .flatMap(author -> author.getBooks().stream())
+                .distinct()
+                .forEach(book -> System.out.println(book.getName()));
+        // 打印现有数据的所有分类。要求对分类进行去重。不能出现这种格式：哲学,爱情
+        authors.stream()
+                .flatMap(author -> author.getBooks().stream())
+                .distinct()
+                .flatMap(book -> Arrays.stream(book.getCategory().split(",")))
+                .distinct()
+                .forEach(category-> System.out.println(category));
+    }
+}
+~~~
 
