@@ -477,3 +477,419 @@ public class FlatMap {
 }
 ~~~
 
+#### **3.4.3** **终结操作**
+
+##### **① forEach**
+
+对流中的元素进行遍历操作，我们通过传入的参数去指定对遍历到的元素进行什么具体操作。
+
+例如：
+
+~~~java
+public class ForEach {
+    public static void main(String[] args) {
+        List<Author> authors = StreamDemo.getAuthors();
+        // 输出所有作家的名字
+        authors.stream()
+                .distinct()
+                .forEach(author -> System.out.println(author.getName()));
+    }
+}
+~~~
+
+##### **② count**
+
+可以用来获取当前流中元素的个数。
+
+例如：
+
+~~~java
+public class Count {
+    public static void main(String[] args) {
+        List<Author> authors = StreamDemo.getAuthors();
+        // 打印这些作家的所出书籍的数目，注意删除重复元素
+        long count = authors.stream()
+                .flatMap(author -> author.getBooks().stream())
+                .distinct()
+                .count();
+        System.out.println(count);
+    }
+}
+~~~
+
+##### **③ max&min**
+
+可以用来或者流中的最值。
+
+例如：
+
+~~~java
+public class MinAndMax {
+    public static void main(String[] args) {
+        List<Author> authors = StreamDemo.getAuthors();
+        // 分别获取这些作家的所出书籍的最高分和最低分并打印
+        Optional<Integer> max = authors.stream()
+                .flatMap(author -> author.getBooks().stream())
+                .map(book -> book.getScore())
+                .max((score1, score2) -> score1 - score2);
+        System.out.println(max.get());
+        Optional<Integer> min = authors.stream()
+                .flatMap(author -> author.getBooks().stream())
+                .map(book -> book.getScore())
+                .min((score1, score2) -> score1 - score2);
+        System.out.println(min.get());
+    }
+}
+~~~
+
+##### **④ collect**
+
+把当前流转换成一个集合。
+
+例如：
+
+~~~java
+public class Collect {
+    public static void main(String[] args) {
+        List<Author> authors = StreamDemo.getAuthors();
+        // 获取一个存放所有作者名字的List集合
+        List<String> nameList = authors.stream()
+                .map(author -> author.getName())
+                .collect(Collectors.toList());
+        System.out.println(nameList);
+
+        // 获取一个所有书名的Set集合
+        Set<String> bookNameSet = authors.stream()
+                .flatMap(author -> author.getBooks().stream())
+                .map(book -> book.getName())
+                .collect(Collectors.toSet());
+        System.out.println(bookNameSet);
+
+        // 获取一个Map集合，map的key为作者名，value为book的List
+        Map<String, List<Book>> map = authors.stream()
+                .distinct()
+                .collect(Collectors.toMap(author -> author.getName(), author -> author.getBooks()));
+        for (Map.Entry<String, List<Book>> stringListEntry : map.entrySet()) {
+            System.out.println(stringListEntry);
+        }
+    }
+}
+~~~
+
+##### **⑤ anyMatch**
+
+可以用来判断是否有任意符合匹配条件的元素，结果为boolean类型。
+
+例如：
+
+~~~java
+public class AnyMatch {
+    public static void main(String[] args) {
+        List<Author> authors = StreamDemo.getAuthors();
+        // 判断是否有年龄在29以上的作家
+        boolean flag = authors.stream()
+                .allMatch(author -> author.getAge() > 29);
+        System.out.println(flag);
+    }
+}
+~~~
+
+##### **⑥ allMatch**
+
+可以用来判断是否都符合匹配条件，结果为boolean类型。如果都符合结果为true，否则结果为false。
+
+例如：
+
+~~~java
+public class AllMatch {
+    public static void main(String[] args) {
+        List<Author> authors = StreamDemo.getAuthors();
+        // 判断是否所有的作家都是成年人
+        boolean flag = authors.stream()
+                .allMatch(author -> author.getAge() >= 18);
+        System.out.println(flag);
+    }
+}
+~~~
+
+##### **⑦ noneMatch**
+
+可以判断流中的元素是否都不符合匹配条件。如果都不符合结果为true，否则结果为false
+
+例如：
+
+~~~java
+public class NoneMatch {
+    public static void main(String[] args) {
+        List<Author> authors = StreamDemo.getAuthors();
+        // 判断作家是否都没有超过100岁的
+        boolean flag = authors.stream()
+                .noneMatch(author -> author.getAge() > 100);
+        System.out.println(flag);
+    }
+}
+~~~
+
+##### **⑧ findAny**
+
+获取流中的任意一个元素。该方法没有办法保证获取的一定是流中的第一个元素。
+
+例如：
+
+~~~java
+public class FindAny {
+    public static void main(String[] args) {
+        List<Author> authors = StreamDemo.getAuthors();
+        // 获取任意一个年龄大于18的作家，如果存在就输出他的名字
+        Optional<Author> writer = authors.stream()
+                .filter(author -> author.getAge() > 18)
+                .findAny();
+        writer.ifPresent(author -> System.out.println(author.getName()));
+    }
+}
+~~~
+
+##### **⑨ findFirst**
+
+获取流中的第一个元素。
+
+例如：
+
+~~~java
+public class FindFirst {
+    public static void main(String[] args) {
+        List<Author> authors = StreamDemo.getAuthors();
+        // 获取一个年龄最小的作家，并输出他的姓名
+        Optional<Author> first = authors.stream()
+                .sorted((o1, o2) -> o1.getAge() - o2.getAge())
+                .findFirst();
+        first.ifPresent(author -> System.out.println(author.getName()));
+    }
+}
+~~~
+
+##### **⑩ reduce归并**
+
+对流中的数据按照你指定的计算方式计算出一个结果。（缩减操作）
+
+reduce的作用是把stream中的元素给组合起来，我们可以传入一个初始值，它会按照我们的计算方式依次拿流中的元素和初始化值进行计算，计算结果再和后面的元素计算。
+
+reduce**两个参数的重载形式**内部的计算方式如下：
+
+~~~java
+T result = identity;
+for (T element : this stream)
+	result = accumulator.apply(result, element)
+return result;
+~~~
+
+其中identity就是我们可以通过方法参数传入的初始值，accumulator的apply具体进行什么计算也是我们通过方法参数来确定的。
+
+例如：
+
+~~~java
+public class Reduce {
+    public static void main(String[] args) {
+        List<Author> authors = StreamDemo.getAuthors();
+        // 使用reduce求所有作者年龄的和
+        Integer sum = authors.stream()
+                .distinct()
+                .map(author -> author.getAge())
+                .reduce(0, (result, element) -> result + element);
+        System.out.println(sum);
+         // 使用reduce求所有作者中年龄的最大值
+        Integer max = authors.stream()
+                .distinct()
+                .map(author -> author.getAge())
+                .reduce(Integer.MIN_VALUE, ((integer, integer2) -> integer > integer2 ? integer : integer2));
+        System.out.println(max);
+        // 使用reduce求所有作者中年龄的最小值
+        Integer min = authors.stream()
+                .distinct()
+                .map(author -> author.getAge())
+                .reduce(Integer.MAX_VALUE, ((integer, integer2) -> integer < integer2 ? integer : integer2));
+        System.out.println(min);
+    }
+}
+~~~
+
+reduce**一个参数的重载形式**内部的计算
+
+~~~java
+// 相当于不用我们自定义初始值，而是用stream流中的第一个元素作为初始值
+boolean foundAny = false;
+T result = null;
+for (T element : this stream) {
+	if (!foundAny) {
+        foundAny = true;
+        result = element;
+	}
+	else
+		result = accumulator.apply(result, element);
+}
+return foundAny ? Optional.of(result) : Optional.empty();
+~~~
+
+如果用一个参数的重载方法去求最小值代码如下：
+
+~~~java
+public class Reduce {
+    public static void main(String[] args) {
+        List<Author> authors = StreamDemo.getAuthors();
+        // 使用reduce一个参数的重载方法求所有作者中年龄的最小值
+        Optional<Integer> min2 = authors.stream()
+                .distinct()
+                .map(author -> author.getAge())
+                .reduce((integer, integer2) -> integer < integer2 ? integer : integer2);
+        System.out.println(min2.get());
+    }
+}
+~~~
+
+### **3.5** **注意事项**
+
+- 惰性求值（如果没有终结操作，没有中间操作是不会得到执行的）
+- 流是一次性的（一旦一个流对象经过一个终结操作后。这个流就不能再被使用）
+- 不会影响原数据（我们在流中可以多数据做很多处理，但是正常情况下是不会影响原来集合中的元素的，这往往也是我们期望的。除非你调用set方法修改对象的值，但一般不会有人写出这种代码）
+
+## **4. Optional**
+
+### **4.1** **概述**
+
+我们在编写代码的时候出现最多的就是空指针异常。所以在很多情况下我们需要做各种非空的判断。
+
+例如：
+
+~~~java
+Author author = getAuthor();
+if(author!=null){
+    System.out.println(author.getName());
+}
+~~~
+
+尤其是对象中的属性还是一个对象的情况下。这种判断会更多。
+
+而过多的判断语句会让我们的代码显得臃肿不堪。所以在JDK8中引入了Optional,养成使用Optional的习惯后你可以写出更优雅的代码来避免空指针异常。
+
+并且在很多函数式编程相关的API中也都用到了Optional，如果不会使用Optional也会对函数式编程的学习造成影响
+
+### **4.2** **使用**
+
+#### **4.2.1** **创建对象**
+
+Optional就好像是包装类，可以把我们的具体数据封装Optional对象内部。然后我们去使用Optional中封装好的方法操作封装进去的数据就可以非常优雅的避免空指针异常。
+
+##### ① `ofNullable`
+
+我们一般使用Optional的**静态方法ofNullable**来把数据封装成一个Optional对象。无论传入的参数是否为null都不会出现问题。
+
+~~~java
+Author author = GetAuthor.getAuthor();
+Optional<Author> authorOptional = Optional.ofNullable(author);
+~~~
+
+你可能会觉得还要加一行代码来封装数据比较麻烦。但是如果改造下getAuthor方法，让其的返回值就是封装好的Optional的话，我们在使用时就会方便很多。
+
+而且在实际开发中我们的数据很多是从数据库获取的。Mybatis从3.5版本可以也已经支持Optional了。我们可以直接把dao方法的返回值类型定义成Optional类型，MyBastis会自己把数据封装成Optional对象返回。封装的过程也不需要我们自己操作。
+
+##### ② `of`
+
+如果你**确定一个对象不是空**的则可以使用Optional的**静态方法of**来把数据封装成Optional对象。
+
+```java
+Author author = GetAuthor.getAuthor();
+// 使用of创建Optional对象
+Optional<Author> authorOptional1 = Optional.of(author);
+```
+
+但是一定要注意，如果使用of的时候传入的参数必须不为null，否则会抛出异常。
+
+如果一个方法的返回值类型是Optional类型。而如果我们经判断发现某次计算得到的返回值为null，这个时候就需要把null封装成Optional对象返回。这时则可以使用Optional的**静态方法empty**来进行封装。
+
+~~~java
+Optional<Author> authorOptional2=author==null?Optional.empty():Optional.of(author);
+~~~
+
+显然使用`ofNullable`会更加方便，不用自己手动判断
+
+#### **4.2.2** **安全消费值**ifPresent
+
+我们获取到一个Optional对象后肯定需要对其中的数据进行使用。这时候我们可以使用其**ifPresent**方法对来消费其中的值。
+
+这个方法会判断其内封装的数据是否为空，不为空时才会执行具体的消费代码。这样使用起来就更加安全了。
+
+例如，以下写法就优雅的避免了空指针异常：
+
+~~~java
+Author author = GetAuthor.getAuthor();
+Optional<Author> authorOptional = Optional.ofNullable(author);
+authorOptional.ifPresent(author1 -> System.out.println(author1.getName()));
+~~~
+
+#### **4.2.3** **获取值**get
+
+如果我们想获取值自己进行处理可以使用get方法获取，但是不推荐。因为当Optional内部的数据为空的时候会出现异常。
+
+**4.2.4** **安全获取值**
+
+如果我们期望安全的获取值。我们不推荐使用get方法，而是使用Optional提供的以下方法。
+
+① `orElseGet`
+
+获取数据并且设置数据为空时的默认值。如果数据不为空就能获取到该数据。如果为空则根据你传入的参数来创建对象作为默认值返回。
+
+~~~java
+Optional<Author> authorOptional = Optional.ofNullable(author);
+authorOptional.orElseGet(() -> new Author());
+~~~
+
+② `orElseThrow`
+
+获取数据，如果数据不为空就能获取到该数据。如果为空则根据你传入的参数来创建异常抛出。
+
+~~~java
+Optional<Author> authorOptional = Optional.ofNullable(author);
+// 使用orElseThrow，在为空时抛出指定异常
+try {
+    authorOptional.orElseThrow((Supplier<Throwable>) () -> new RuntimeException("author为空"));
+} catch (Throwable e) {
+    throw new RuntimeException(e);
+}
+~~~
+
+#### **4.2.5** **过滤**
+
+我们可以使用filter方法对数据进行过滤。如果原本是有数据的，但是不符合判断，也会变成一个无数据的Optional对象，而不是null。
+
+~~~java
+public class Filter {
+    public static void main(String[] args) {
+        Author author = GetAuthor.getAuthor();
+        Optional<Author> authorOptional = Optional.ofNullable(author);
+        authorOptional.ifPresent(author1 -> System.out.println(author1.getAge()));
+        authorOptional.filter(author12 -> author12.getAge()>50).ifPresent(author1 -> System.out.println(author1.getAge()));
+    }
+}
+~~~
+
+#### **4.2.6** **判断**
+
+我们可以使用isPresent方法进行是否存在数据的判断。如果为空返回值为false,如果不为空，返回值为true。但是这种方式并不能体现Optional的好处，**更推荐使用ifPresent**方法。
+
+#### **4.2.7** **数据转换**
+
+Optional还提供了map可以让我们的对数据进行转换，并且转换得到的数据也还是被Optional包装好的，保证了我们的使用安全。
+
+例如我们想获取作家的书籍集合。
+
+~~~java
+public class OptionalMap {
+    public static void main(String[] args) {
+        Author author = GetAuthor.getAuthor();
+        Optional<Author> authorOptional = Optional.ofNullable(author);
+        Optional<List<Book>> books = authorOptional.map(author1 -> author1.getBooks());
+        books.ifPresent(books1 -> System.out.println(books1));
+    }
+}
+~~~
+
