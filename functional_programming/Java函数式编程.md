@@ -935,3 +935,139 @@ JDK的函数式接口都加上了**@FunctionalInterface** 注解进行标识。�
 
 Predicate接口中的方法。negate方法相当于是在判断添加前面加了个! 表示取反。
 
+## **6.** **方法引用**
+
+我们在使用lambda时，如果方法体中只有一个方法的调用的话（包括构造方法）,我们可以用方法引用进一步简化代码。
+
+### **6.1** **推荐用法**
+
+我们在使用lambda时不需要考虑什么时候用方法引用，用哪种方法引用，方法引用的格式是什么。我们只需要在写完lambda方法发现方法体只有一行代码，并且是方法的调用时使用快捷键尝试是否能够转换成方法引用即可。
+
+### **6.2** **基本格式**
+
+类名或者对象名::方法名
+
+### 6.3 分类
+
+#### ① 引用类的静态方法
+
+~~~java
+public class Example1 {
+    public static void main(String[] args) {
+        List<Author> authors = getAuthors();
+        // 不适用方法引用
+        authors.stream()
+                .map(author -> author.getAge())
+                .map(age->String.valueOf(age))
+                .forEach(age-> System.out.println(age));
+        // 使用方法引用
+        authors.stream()
+                .map(Author::getAge)
+                .map(String::valueOf)
+                .forEach(System.out::println);
+    }
+}
+~~~
+
+#### ② 引用对象的实例方法
+
+~~~java
+public class Example2 {
+    public static void main(String[] args) {
+        List<Author> authors = getAuthors();
+        StringBuilder sb = new StringBuilder();
+        authors.stream()
+                .map(Author::getName)
+                .forEach(sb::append);
+        System.out.println(sb.toString());
+    }
+}
+~~~
+
+#### ③ **引用类的实例方法**
+
+~~~java
+public class Example3 {
+    public interface UseString{
+        String use(String str,int start,int length);
+    }
+    public static String subAuthorName(String str, UseString useString){
+        int start = 0;
+        int length = 3;
+        return useString.use(str,start,length);
+    }
+    public static void main(String[] args) {
+        System.out.println(subAuthorName("ChenHao", new UseString() {
+            @Override
+            public String use(String str, int start, int length) {
+                return str.substring(start, length);
+            }
+        }));
+        System.out.println(subAuthorName("ChenHao", String::substring));
+    }
+}
+~~~
+
+#### ④ 构造器引用
+
+~~~java
+List<Author> authors = getAuthors();
+authors.stream()
+	.map(author -> author.getName())
+	.map(StringBuilder::new)
+	.map(sb->sb.append("-三更").toString())
+	.forEach(str-> System.out.println(str));
+~~~
+
+## **7.** **高级用法**
+
+### 7.1 基本数据类型优化
+
+我们之前用到的很多Stream的方法由于都使用了泛型。所以涉及到的参数和返回值都是引用数据类型。
+
+即使我们操作的是整数小数，但是实际用的都是他们的包装类。JDK5中引入的自动装箱和自动拆箱让我们在使用对应的包装类时就好像使用基本数据类型一样方便。
+
+但是装箱和拆箱肯定是要消耗时间的。虽然这个时间消耗很下。但是在大量的数据不断的重复装箱拆箱的时候，你就不能无视这个时间损耗了。
+
+所以为了让我们能够对这部分的时间消耗进行优化。Stream还提供了很多专门针对基本数据类型的方法。
+
+例如：`mapToInt`，`mapToLong`，`mapToDouble`，`flatMapToInt`，`flatMapToDouble`等
+
+### 7.2 **并行流**
+
+当流中有大量元素时，我们可以使用并行流去提高操作的效率。其实并行流就是把任务分配给多个线程去完全。如果我们自己去用代码实现的话其实会非常的复杂，并且要求你对并发编程有足够的理解和认识。而如果我们使用Stream的话，我们只需要修改一个方法的调用就可以使用并行流来帮我们实现，从而提高效率。
+
+`parallel`和`parallelStream`可以把串行流转换成并行流。
+
+~~~java
+public class Parallel {
+    public static void main(String[] args) {
+        List<Author> authors = StreamDemo.getAuthors();
+
+        authors.stream()
+                .map(Author::getAge)
+                .map(age -> age + 10)
+                .filter(age->age>18)
+                .map(age->age+2)
+                .forEach(integer -> System.out.println(integer+":"+Thread.currentThread().getName()));
+        System.out.println("-----------------------");
+        // 使用parallel
+        authors.stream()
+                .parallel()
+                .map(Author::getAge)
+                .map(age -> age + 10)
+                .filter(age->age>18)
+                .map(age->age+2)
+                .forEach(integer -> System.out.println(integer+":"+Thread.currentThread().getName()));
+        System.out.println("----------------------");
+        // 使用parallelStream
+        authors.parallelStream()
+                .map(Author::getAge)
+                .map(age -> age + 10)
+                .filter(age->age>18)
+                .map(age->age+2)
+                .forEach(integer -> System.out.println(integer+":"+Thread.currentThread().getName()));
+    }
+}
+~~~
+
