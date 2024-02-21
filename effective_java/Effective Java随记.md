@@ -428,3 +428,84 @@ public class Test {
 
 `Builder`模式还比重叠构造器模式更加冗 ，因此它只在有很多参数的时候才使用，比如4个或者更多个参数。但是记住，将来你可能需要添加参数，如果一开始就使用构造器或者静态 厂，等到类需要多个参数时才添加构造器，就会无法控制，那些过时的构造器或者静态工厂显得十分不协调。因此，通常最好一开始就使用构建器。
 
+## 1.3 用私有构造器或者枚举类型强化 Singleton 属性
+
+当我们想要一个单例对象时，通常有好几种做法，但首先最重要的是，要先把构造器私有化。
+
+### ① 饿汉式
+
+~~~java
+public class Singleton1 {
+    private Singleton1(){};
+    private static final Singleton1 INSTANCE=new Singleton1();
+    public static Singleton1 getInstance(){
+        return INSTANCE;
+    }
+}
+public class Test {
+    public static void main(String[] args) {
+        // 饿汉式
+        System.out.println(Singleton1.getInstance()==Singleton1.getInstance());// true
+    }
+}
+~~~
+
+饿汉式在类初始化时，便直接创建出单例对象，因此需要用`final`修饰，适用于那些只要程序启动就一定会用到的单例对象。
+
+### ② 懒汉式
+
+~~~java
+public class Singleton2 {
+    private Singleton2(){
+        // 防止通过反射构造对象
+        if(INSTANCE!=null){
+            throw new Error("singleton");
+        }else {
+            INSTANCE=this;
+        }
+    };
+    private static volatile Singleton2 INSTANCE=null;
+    public static Singleton2 getInstance(){
+        if(INSTANCE==null){
+            synchronized (Singleton2.class){
+                if(INSTANCE==null){
+                    INSTANCE=new Singleton2();
+                }
+            }
+        }
+        return INSTANCE;
+    }
+    // 防止通过反序列化构造对象
+    public Object readResole(){
+        return INSTANCE;
+    }
+}
+public class Test {
+    public static void main(String[] args) {
+        // 懒汉式
+        System.out.println(Singleton2.getInstance()==Singleton2.getInstance());// true
+    }
+}
+~~~
+
+懒汉式只有在需要用到该对象的时候才会尝试创建。
+
+在多线程场景下，需要考虑并发问题，所以需要通过`volatile`和`synchronized`加以控制。
+
+此外，为了防止一些恶意程序或者错误使用，我们需要防止用户通过反射以及反序列化的方式来创建对象。
+
+### ③ 枚举类
+
+~~~java
+public enum Singleton3{
+    INSTANCE;
+}
+public class Test {
+    public static void main(String[] args) {
+        // 枚举类
+        System.out.println(Singleton3.INSTANCE==Singleton3.INSTANCE);// true
+    }
+}
+~~~
+
+在`JDK1.5`之后出现了枚举类。采用这种方法更加简洁，并且天然能防止反序列化和反射，即使是在面对复杂的序列化或者反射攻击的时候。虽然这种方法还没有广泛采用，但是单元素的枚举类型经常成为实现单例的最佳方法。
