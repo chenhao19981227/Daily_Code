@@ -246,3 +246,185 @@ private Cat(){}
 - `newType` —— 与 `newInstance` 类似，但是在工厂方法处于不同的类中的时候使用。`newType`中的 Type 是工厂方法返回的对象类型，例如：`BufferedReader br = Files.newBufferedReader(path);`
 - `type` —— `getType` 和 `newType` 简洁的替代方式，例如：`List litany = Collections.list(legacyLitany);`
 
+## 1.2 遇到多个构造器参数时要考虑使用构建器
+
+静态工厂和构造器有个共同的局限性：它们都不能很好的扩展到大量的可选参数。面对这种情况，我们有以下几种解决思路，但都有利有弊。
+
+### ① 生成大量构造方法
+
+比如下面的例子，猫类有5个属性。在构造其实例时，这几种属性有多种组合，比如可以没有名字，也可以没有主人，或者两者都无。
+
+单是如此就有3种组合方式，若属性进一步增多，组合方式也就更多，我们不得不为每一种组合方式提供一个构造方法，这会使得代码十分臃肿。且对于用户来说，大量的参数大大降低了构建对象的“体验”。
+
+~~~java
+public class Cat1 {
+    private Integer id;// id，唯一，不可变，不可为null
+    private String name;// 名字，不唯一，可变，可为null
+    private String color;// 颜色，不唯一，不可变，可为null
+    private LocalDateTime birthday;// 生日，不唯一，不可变，不可为null
+    private Integer masterId;// 主人，不唯一，可变，可为null
+    
+    public Cat1(){}
+    public Cat1(Integer id, String name, String color, LocalDateTime birthday, Integer masterId) {
+        this.id = id;
+        this.name = name;
+        this.color = color;
+        this.birthday = birthday;
+        this.masterId = masterId;
+    }
+    public Cat1(Integer id, String color, LocalDateTime birthday, Integer masterId) {
+        this.id = id;
+        this.color = color;
+        this.birthday = birthday;
+        this.masterId = masterId;
+    }
+    public Cat1(Integer id, String name, String color, LocalDateTime birthday) {
+        this.id = id;
+        this.name = name;
+        this.color = color;
+        this.birthday = birthday;
+    }
+    public Cat1(Integer id, String color, LocalDateTime birthday) {
+        this.id = id;
+        this.color = color;
+        this.birthday = birthday;
+    }
+}
+~~~
+
+当然，这种方法也有一定优点，其性能相对构建器来说会好一点。不过在日常开发中，这点性能无足轻重。
+
+### ② 使用`setter()`注入属性
+
+~~~java
+public class Test {
+    public static void main(String[] args) {
+        Cat1 cat1=new Cat1();
+        cat1.setId(1);
+        cat1.setName("mao");
+    }
+}
+~~~
+
+我们可以使用空参构造器、某个特定的构造器或者某个静态方法获取对象，然后通过`setter()`方法注入我们需要的属性。这样一来，就无需定义大量的构造方法，使创建实例变得容易，这样产生的代码读起来也很容易。
+
+虽然听起来很不错，但是，因为构造过程被分到了几个调用中，在构造过程中 Java Bean 可能处于不一致的状态，类无法仅仅通过检验构造器参数的有效性来保证一致性。	
+
+并且由于提供了`setter()`，对应的属性将不再“不可变”，这就需要程序员付出额外的努力来确保它的线程安全。‘
+
+### ③ 建造者(Builder)模式
+
+它不直接生成想要的对象，而是让客户端利用所有必要的参数调用构造器（或者静态工厂），得到一个`builder`对象 然后客户端在 `builder`对象上调用类似于`setter()`的方法，来设置每个相关的可选参数。最后，客户端调用无参`build`方法来生成通常是不可变的对象。这个`builder`通常是它构建的类的静态成员类。
+
+例子如下：
+
+我们在`Cat2`类中创建一个静态内部类`CatBuilder`，`CatBuilder`拥有`Cat2`所有的属性。
+
+然后在`CatBuilder`中，我们创建一个构造器，构造器中的参数为`Cat2`中不可为null的属性。
+
+接着，对其他所有参数，我们建立一个方法用于注入属性，该方法返回一个`CatBuilder`对象。
+
+最后在构建一个返回`Cat2`对象的`build`方法即可。
+
+~~~java
+@ToString
+public class Cat2 {
+    private final Integer id;// id，唯一，不可变，不可为null
+    private String name;// 名字，不唯一，可变，可为null
+    private String color;// 颜色，不唯一，不可变，可为null
+    private final LocalDateTime birthday;// 生日，不唯一，不可变，不可为null
+    private Integer masterId;// 主人，不唯一，可变，可为null
+
+    public Cat2(Integer id, LocalDateTime birthday) {
+        this.id = id;
+        this.birthday = birthday;
+    }
+    public static class CatBuilder{
+        private final Integer id;// id，唯一，不可变，不可为null
+        private String name;// 名字，不唯一，可变，可为null
+        private String color;// 颜色，不唯一，不可变，可为null
+        private final LocalDateTime birthday;// 生日，不唯一，不可变，不可为null
+        private Integer masterId;// 主人，不唯一，可变，可为null
+        public CatBuilder(Integer id,LocalDateTime birthday){
+            this.id=id;
+            this.birthday=birthday;
+        }
+        public CatBuilder name(String name){
+            this.name=name;
+            return this;
+        }
+        public CatBuilder color(String color){
+            this.color=color;
+            return this;
+        }
+        public CatBuilder masterId(Integer masterId){
+            this.masterId=masterId;
+            return this;
+        }
+        public Cat2 build(){
+            return new Cat2(this);
+        }
+    }
+    private Cat2(CatBuilder builder){
+        id=builder.id;
+        name=builder.name;
+        color=builder.color;
+        birthday=builder.birthday;
+        masterId=builder.masterId;
+    }
+}
+
+public class Test {
+    public static void main(String[] args) {
+        Cat2 cat2 = new Cat2.CatBuilder(2, LocalDateTime.now())
+                .name("maomao")
+                .color("white")
+                .masterId(10)
+                .build();
+        System.out.println(cat2);
+        // Cat2(id=2, name=maomao, color=white, birthday=2024-02-17T18:39:24.251, masterId=10)
+
+    }
+}
+~~~
+
+### ④ 使用`Lombok`
+
+使用`Lombok`的`@Builder`注解，可以快速的创建构建器。
+
+~~~java
+@Builder
+@AllArgsConstructor
+@ToString
+public class Cat3 {
+    private final Integer id;// id，唯一，不可变，不可为null
+    private String name;// 名字，不唯一，可变，可为null
+    private String color;// 颜色，不唯一，不可变，可为null
+    private final LocalDateTime birthday;// 生日，不唯一，不可变，不可为null
+    private Integer masterId;// 主人，不唯一，可变，可为null
+
+    public Cat3(Integer id, LocalDateTime birthday) {
+        this.id = id;
+        this.birthday = birthday;
+    }
+}
+
+public class Test {
+    public static void main(String[] args) {
+        Cat3 cat3=new Cat3.Cat3Builder()
+                .id(3)
+                .birthday(LocalDateTime.now())
+                .name("maomao")
+                .color("white")
+                .masterId(10)
+                .build();
+        System.out.println(cat3);
+        // Cat3(id=3, name=maomao, color=white, birthday=2024-02-17T20:04:59.885, masterId=10)
+    }
+}
+~~~
+
+`Builder`模式的确也有它自身的不足。为了创建对象 ，必须先创建它的构建器，虽然创建这个构建器的开销在实践中可能不那么明显，但是在某些十分注重性能的情况下，可能就成问题了。
+
+`Builder`模式还比重叠构造器模式更加冗 ，因此它只在有很多参数的时候才使用，比如4个或者更多个参数。但是记住，将来你可能需要添加参数，如果一开始就使用构造器或者静态 厂，等到类需要多个参数时才添加构造器，就会无法控制，那些过时的构造器或者静态工厂显得十分不协调。因此，通常最好一开始就使用构建器。
+
