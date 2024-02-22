@@ -518,9 +518,34 @@ public class Test {
 
 不过，将构造器私有化也有坏处：它使得该类不能被子类化。因为子类天然继承父类的构造方法，但是由于构造方法私有化了，所以无法继承。
 
+## 1.5 优先考虑依赖注入来引用资源
 
+思考一下，当某个类需要引入一个底层资源的时候，我们该怎么做？这里要注意的是，底层资源与普通的属性不同，一般是声明为final的
 
+首先，我们当然可以直接在类中定义属性的值。
 
+~~~java
+private static final Dog dog=new Dog("wang");
+~~~
 
+或者将属性定义为`nonfinal`，然后在需要的时候使用setter函数修改属性的值。
 
+依赖注入模式在我们日常开发中经常使用，只不过我们可能不知道他叫这个名字
+
+~~~java
+public class Person {
+    private final Dog dog;
+    public Person(Dog dog){
+        this.dog=dog;
+    }
+}
+public class Test {
+    public static void main(String[] args) {
+        Dog dog=new Dog("wang");
+        Person person=new Person(dog);
+    }
+}
+~~~
+
+实际上，就是在构造方法中传入了我们需要的对象或值而已，十分简单。
 
