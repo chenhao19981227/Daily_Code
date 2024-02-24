@@ -549,3 +549,116 @@ public class Test {
 
 实际上，就是在构造方法中传入了我们需要的对象或值而已，十分简单。
 
+需要注意的点是，这个模式有一个常见的变体：将资源工厂传递给构造器。
+
+所谓工厂，就是可以重复被调用来创建类型实例的一个对象，我们可以利用Java8提供的Supplier接口十分便捷地实现这一操作。
+
+~~~java
+public class DogFactory {
+    public static Dog dogFactory(Supplier<? extends Dog> supplier){
+        return supplier.get();
+    }
+
+    public static void main(String[] args) {
+        Dog dog = dogFactory(() -> new Dog("哈士奇"));
+        System.out.println(dog.name);
+    }
+}
+~~~
+
+这种变体实际上就说设计模式中常用的工厂模式，具体优点可以参考设计模式相关书籍。
+
+## 1.6 避免创建不必要的对象
+
+**当你应该重用现有对象的时候，请不要创建新的对象**，比如字符串常量的创建。第二种创建方式会在堆区额外创建一个对象。
+
+~~~java
+String str = “hello”;
+String str = new String(“hello”);
+~~~
+
+在实际开发中，为了防止重复创建，我们通常会将其声明为`static final`类型，或者使用static代码块对其进行加载，比如：
+
+~~~java
+public class RomanN {
+    public boolean isRomanNumeral(String originString){
+        return originString.matches("^(?=.)M*(C[MD]|D?C{0,3})"
+                + "(X[CL]|L?X{0,3})(I[XV]|V?I{0,3})$");
+    }
+    private static final String ROMANREGEX = "^(?=.)M*(C[MD]|D?C{0,3})"
+            + "(X[CL]|L?X{0,3})(I[XV]|V?I{0,3})$";
+    public boolean isRomanNumeral2(String originString){
+        return originString.matches(ROMANREGEX);
+    }
+}
+public class Test {
+    public static void main(String[] args) {
+        RomanN test=new RomanN();
+        long start = System.currentTimeMillis();
+        System.out.println(test.isRomanNumeral("test"));
+        System.out.println(test.isRomanNumeral("test2"));
+        System.out.println(test.isRomanNumeral("test3"));
+        System.out.println(test.isRomanNumeral("VI"));
+        System.out.println(System.currentTimeMillis()-start);// 2
+
+        /**
+         * 下面这种方式确实耗时更短
+         */
+        long start2 = System.currentTimeMillis();
+        System.out.println(test.isRomanNumeral2("test"));
+        System.out.println(test.isRomanNumeral2("test2"));
+        System.out.println(test.isRomanNumeral2("test3"));
+        System.out.println(test.isRomanNumeral2("VI"));
+        System.out.println(System.currentTimeMillis()-start2);// 1
+    }
+}
+~~~
+
+上面的代码是一个判断字符串是否是一个罗马数字，采用正则表达式进行校验。
+
+如果采用第一种方式，那么每次调用`isRomanNumeral`函数，都会创建一个Pattern实例，这是极其消耗空间和时间的。
+
+因此最好将其静态化，成为类初始化的一部分。
+
+还有一个常见的点：**自动装箱和拆箱**
+
+这是java为我们提供的一个便利，但是装箱和拆箱的过程实际上就是对象的创建和销毁，我们要尽量避免这中情况。
+
+~~~java
+public class Test {
+    public static void main(String[] args) {
+        long start3=System.currentTimeMillis();
+        sum1();
+        System.out.println(System.currentTimeMillis()-start3);// 6977
+        long start4=System.currentTimeMillis();
+        sum2();
+        System.out.println(System.currentTimeMillis()-start4);// 524
+    }
+    private static void sum1(){
+        Long sum=0L; // 包装类型Long
+        for(long i=0;i<=Integer.MAX_VALUE;i++){
+            sum+=i;
+        }
+    }
+    private static void sum2(){
+        long sum=0L; // 基本数据类型long
+        for(long i=0;i<=Integer.MAX_VALUE;i++){
+            sum+=i;
+        }
+    }
+}
+
+~~~
+
+可以看到，在`sum1()`中，由于`sum`声明为`Long`类型，因此每次运行`sum+=i`时，jvm都会帮我们自动装箱，导致最终消耗了大量时间。可以看到，运行时间相差了十几倍。
+
+
+
+
+
+
+
+
+
+
+
