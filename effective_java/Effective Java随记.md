@@ -652,7 +652,87 @@ public class Test {
 
 可以看到，在`sum1()`中，由于`sum`声明为`Long`类型，因此每次运行`sum+=i`时，jvm都会帮我们自动装箱，导致最终消耗了大量时间。可以看到，运行时间相差了十几倍。
 
+## 1.7 消除过期的对象引用
 
+Java有垃圾回收机制，那么还存在内存泄露吗？答案是肯定的，所谓的垃圾回收GC会自动管理内存的回收，而不需要程序员每次都手动释放内存，但是如果存在大量的临时对象在不需要使用时并没有取消对它们的引用，就会吞噬掉大量的内存，很快就会造成内存溢出。比如：
+
+### ① 过期引用
+
+~~~java
+public class Stack {
+    private Object[] elements;
+    private int size = 0;
+    private static final int DEFAULT_INITIAL_CAPACITY = 16;
+
+    public Stack() {
+        elements=new Object[DEFAULT_INITIAL_CAPACITY];
+    }
+
+    public void push(Object e) {
+        ensureCapacity();
+        elements[size++]=e;
+    }
+
+    public Object pop() {
+        if(size==0)
+            throw new EmptyStackException();
+//        return elements[--size]; // 没有清除引用，容易造成内存泄漏
+        Object result=elements[--size];
+        elements[size]=null; // 手动清除引用
+        return result;
+    }
+
+    /**
+     * Ensure space for at least one more element, roughly doubling the capacity
+     * each time the array needs to grow.
+     */
+    private void ensureCapacity() {
+        if (elements.length == size)
+            elements = Arrays.copyOf(elements, 2 * size + 1);
+    }
+}
+~~~
+
+### ② 缓存
+
+一旦将对象引用放入缓存中，很容易忘记它的存在，并且在它变得无关紧要之后，仍然保留在缓存中。即使外部没有指向value的引用，但`Hashmap`中依然保存了指向value的强引用。随着缓存的积累很大概率会出现溢出的可能。因此，如果你正好想实现一个缓存：只要在缓存之外不存在对某个项（entry）的键（key）引用，那该项就会被自动清除，就可以用`WeakHashMap`来表示缓存：
+
+~~~java
+public class Cache {
+    public static void main(String[] args) throws InterruptedException {
+        // 使用HashMap作为缓存
+        Map<Object, String> hashMapCache = new HashMap<>();
+        // 使用WeakHashMap作为缓存
+        Map<Object, String> weakHashMapCache = new WeakHashMap<>();
+
+        // 创建一个键对象
+        Object hashMapKey = new Object();
+        Object weakHashMapKey = new Object();
+
+        // 添加对象到HashMap和WeakHashMap
+        hashMapCache.put(hashMapKey, "HashMapValue");
+        weakHashMapCache.put(weakHashMapKey, "WeakHashMapValue");
+
+        // 移除强引用
+        hashMapKey = null;
+        weakHashMapKey = null;
+
+        // 请求垃圾收集
+        System.gc();
+
+        // 短暂延迟，等待垃圾收集器运行
+        Thread.sleep(5000);
+
+        // 打印缓存内容
+        System.out.println("HashMap cache contains key? " + hashMapCache.containsValue("HashMapValue")); //true
+        System.out.println("WeakHashMap cache contains key? " + weakHashMapCache.containsValue("WeakHashMapValue")); // false
+    }
+}
+~~~
+
+### ③ 监听器和其他回调
+
+由于以前没学过监听器和回调，等学习到事件建听模式后再来补充。。。
 
 
 
