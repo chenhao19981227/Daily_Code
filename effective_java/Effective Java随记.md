@@ -734,9 +734,79 @@ public class Cache {
 
 由于以前没学过监听器和回调，等学习到事件建听模式后再来补充。。。
 
+## 1.8 避免使用终结方法和清除方法
 
+在 Java 程序中，应尽量避免使用终结方法，因为它通常是不可预测的，也是很危险的，一般情况下是不必要的。清除方法没有终结方法那么危险，但仍然是不可预测、运行缓慢、一般情况也是不必要的。注意清除方法需要实现`AutoCloseable`接口。
 
+### ① 缺点
 
+- 终结方法和清除方法不能保证会被及时执行
+- 终结方法和清除方法有性能损失，特别是终结方法。
+- 终结方法有一个严重的安全问题。如果从构造器或者它的序列化对等体（如`readObject`和`readResolve`方法）抛出异常，恶意子类的终结方法就可以在构造了一部分的应该已经半途夭折的对象上运行。这个终结方法会将该对象的引用记录在一个静态域中，阻止它被垃圾回收。**从构造器抛出异常，应该足以防止对象继续存在；但有了终结方法的存在，这一点就做不到了**。
+- 如果从终结方法中抛出未捕获的异常，该对象的终结过程也会被终止。此时，该对象处于破坏的状态，如果另一个线程企图使用这种被破坏的对象，则可能导致不确定行为。正常情况下，未捕获的异常将导致线程终止，并打印`StackTrace`，但是如果异常在终结方法中，则不会如此，甚至连警告都不会打印出来。
+
+### ② 优点
+
+- 当资源的所有者忘记调用它的 `close` 方法时，终结方法或者清除方法可以作为“安全网”。虽然这样做并不能保证终结方法或清除方法及时运行，但是在客户端无法正常结束操作的情况下，迟一点释放资源总比永不释放好。
+- 在本地对等体（native peer）中使用终结方法。本地对等体是一个本地（非 Java 的）对象（native object），普通对象通过本地方法（native method）委托给一个本地对象。因为本地对等体不是一个普通对象，所以垃圾回收器不会知道它，当它对应的 Java 对等体被回收的时候，它不会被回收。如果本地对等体没有关键资源，并且性能也可以接受的话，那么清除方法或者终结方法正是执行这项任务最合适的工具。如果本地对等体拥有必须被及时终止的资源，或者性能无法接受，那么该类就应该具有一个 `close` 方法。
+
+总结，不要使用终结方法，清除方法仅作为一个安全网使用，不能指望其及时执行。当需要清理资源时最好还是使用手动清除。
+
+### ③ 清除方法使用示例
+
+~~~java
+public class Room implements AutoCloseable{ // 实现AutoCloseable，并重写close()方法
+    private static final Cleaner cleaner=Cleaner.create();
+    private static class State implements Runnable{
+        int numJunkPiles;
+        State(int numJunkPiles){
+            this.numJunkPiles=numJunkPiles;
+        }
+        @Override
+        public void run() {
+            System.out.println("Clean room");
+            numJunkPiles=0;
+        }
+    }
+    private final State state;
+    private final Cleaner.Cleanable cleanable;
+    public Room(int numJunkPiles) {
+        state=new State(numJunkPiles);
+        this.cleanable = cleaner.register(this,state); // 注册一个cleanable
+    }
+    @Override
+    public void close() throws Exception {
+        cleanable.clean();// 调用了state的run()方法
+    }
+}
+
+public class Test {
+    public static void main(String[] args) throws Exception {
+        try (Room room1= new Room(10)) {
+            System.out.println("ok");
+        }
+        System.out.println("——————————————————————————");// 成功清除
+
+        Room room2  = new Room(99);
+        room2.close();
+        System.out.println("ok");
+        System.out.println("——————————————————————————");// 成功清除
+
+        Room room3  = new Room(99);
+        room3=null;
+        System.out.println("ok");
+        System.out.println("——————————————————————————");// 清除失败
+
+        Room room4=new Room(100);
+        room4=null;
+        System.gc();
+        System.out.println("ok");// 成功清除
+
+    }
+}
+~~~
+
+实际上，在room3中我们没有用任何手段关闭资源，我们期望在没有指针指向该实例之后，清除方法能自动帮我们回收，但是结果并没有，这正是前面提到的不可预见性。
 
 
 
