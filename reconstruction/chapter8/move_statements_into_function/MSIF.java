@@ -1,6 +1,5 @@
 package reconstruction.chapter8.move_statements_into_function;
 
-import com.sun.deploy.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -16,13 +15,13 @@ public class MSIF {
     }
     public String photoDiv(Photo photo){
         List<String> result = Arrays.asList("<div>", "<p>title: " + photo.getTitle() + "</p>", emitPhotoData(photo), "</div>");
-        return StringUtils.join(result, ",");
+        return String.join(",", result);
     }
 
     public String emitPhotoData(Photo photo) {
         List<String> result=new ArrayList<>();
         result.add("<p>location:"+photo.getLocation()+"</p>");
-        return StringUtils.join(result,"\n");
+        return String.join("\n", result);
     }
 
 }
