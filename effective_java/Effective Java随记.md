@@ -808,7 +808,105 @@ public class Test {
 
 实际上，在room3中我们没有用任何手段关闭资源，我们期望在没有指针指向该实例之后，清除方法能自动帮我们回收，但是结果并没有，这正是前面提到的不可预见性。
 
+## 1.9 try-with-resources优先于try-finally
 
+Java 类库中包括了许多必须通过调用`close`方法来手动关闭的资源。都是一些关于文件流、SQL连接。虽然其中很多资源都是用`finalizer()`方法作为最后的后盾，但是效果并没有很理想，原因见1.8。所以一般我们都会用try-finally来确保资源正确关闭。实际上，使用try-finally是能确保资源被正确关闭的。但是，有的时候我们不仅仅要求出现异常时资源被正确关闭，还有其他需求。
 
+### ① 异常信息
 
+有的时候我们不仅仅要求出现异常时资源被正确关闭，还需要知道哪里出现异常。这是try-finally无法做到的，比如：
+
+~~~java
+public class Finally {
+    public static void main(String[] args) throws IOException {
+        String line = readFile(""); // 9
+        System.out.println(line);
+    }
+
+    private static String readFile(String path) throws IOException {
+        BufferedReader br=null;
+        try {
+            br=new BufferedReader(new FileReader(path));
+            return br.readLine();
+        }finally {
+            br.close(); // 19
+        }
+    }
+}
+
+Exception in thread "main" java.lang.NullPointerException: Cannot invoke "java.io.BufferedReader.close()" because "br" is null
+	at effective_java.chapter2_creating_and_destroying_objects.item09.Finally.readFile(Finally.java:19)
+	at effective_java.chapter2_creating_and_destroying_objects.item09.Finally.main(Finally.java:9)
+~~~
+
+可以看到，如果设备出现异常，那么那么调用`readLine()`就会抛出异常，同时`close()`方法也出现异常，在这种情况下，`close()`异常会完全抹去`readLine()`异常。在异常堆栈轨迹中也完全没有`readLine()`异常的记录。这对于程序员来说很不好，因为我们无法根据异常信息进行排查。
+
+~~~java
+public class Resource {
+    public static void main(String[] args) throws IOException {
+        String line = readFile("");
+        System.out.println(line);
+    }
+
+    private static String readFile(String path) throws IOException {
+        try(BufferedReader reader=new BufferedReader(new FileReader(path))){
+            return reader.readLine();
+        }
+    }
+}
+
+Exception in thread "main" java.io.FileNotFoundException: 
+	at java.base/java.io.FileInputStream.open0(Native Method)
+	at java.base/java.io.FileInputStream.open(FileInputStream.java:216)
+	at java.base/java.io.FileInputStream.<init>(FileInputStream.java:157)
+	at java.base/java.io.FileInputStream.<init>(FileInputStream.java:111)
+	at java.base/java.io.FileReader.<init>(FileReader.java:60)
+	at effective_java.chapter2_creating_and_destroying_objects.item09.Resource.readFile(Resource.java:14)
+	at effective_java.chapter2_creating_and_destroying_objects.item09.Resource.main(Resource.java:9)
+~~~
+
+使用try-with-resources的话，如果`readLine()`和不可见的close方法都抛出异常，`close()`方法抛出的异常就会被禁止，try-finally处理机制中我们无法看到，堆栈轨迹中也不能打印，但是try-with-resources不一样，全部会被打印在堆栈轨迹中，并注明它们是被禁止的异常，通过编写调用`getSuppressed()`方法还可以访问到它们。
+
+### ② 代码简洁
+
+当有多个资源需要关闭时，使用try-finally就需要多重嵌套，这会使得代码看上去非常复杂
+
+~~~java
+public class Finally {
+    static void copy(String src, String desc) throws IOException {
+        InputStream in = new FileInputStream(src);
+        try {
+            OutputStream out = new FileOutputStream(desc);
+            byte[] bytes = new byte[1024];
+            int n;
+            try {
+                while ((n = in.read(bytes)) != -1) {
+                    out.write(bytes, 0, n);
+                }
+            } finally {
+                out.close();
+            }
+        } finally {
+            in.close();
+        }
+    }
+}
+~~~
+
+而使用try-with-resources的话，就能将需要关闭的资源都包裹在`try()`中，使得代码非常简洁
+
+~~~java
+public class Resource {
+    static void copy(String src, String desc) throws IOException {
+        try (InputStream in = new FileInputStream(src);
+             OutputStream out = new FileOutputStream(desc)) {
+            byte[] bytes = new byte[1024];
+            int n;
+            while ((n = in.read(bytes)) != -1) {
+                out.write(bytes, 0, n);
+            }
+        }
+    }
+}
+~~~
 
