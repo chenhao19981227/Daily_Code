@@ -910,3 +910,104 @@ public class Resource {
 }
 ~~~
 
+# 二、对于所有对象都通用的方法
+
+## 2.1 覆盖equals时请遵守通用约定
+
+### 2.1.1 不需要重写的情况
+
+首先我们要知道，重写equals方法看起来非常的简单，但是很多的重写方式会导致错误的产生，并且后果很严重。所以避免这类问题的办法其实就是不去重写，让每个类的实例只和自身相等。下面这些情况下我们不需要重写equals：
+
+#### ① 类的每个实例本质上都是唯一的
+
+举个栗子，一个代表某种行为活动而不代表值的类，Thread类，它就完全没有重写的必要。
+
+#### ② 类没有必要提供“逻辑相等”的测试功能
+
+如Pattern类，它可以去覆盖equals，用来检查两个实例是否代表同一个正则，但设计者觉得用户不需要这个功能，所以没有进行重写。
+
+#### ③ 父类已经重写了equals，而且父类的行为适用于子类
+
+如大多的`Set`都从`AbstractSet`继承equals实现，`List`从`AbstractList`继承，`Map`从`AbstractMap`继承。父类的equals实现已经完全够用，且适合子类，所以没有必要重写。
+
+#### ④ 确定equals方法永远不会被调用
+
+类是私有或包级私有的，可以确定其equals方法永远不会被调用。
+
+### 2.1.2 需要重写的情况
+
+**当这个类为“值类”的时候**
+
+`值类`：这个类具有逻辑相等的概念，仅仅表示一个或多个值，且父类没有重写equals方法。
+
+如：`Integer`、`String`和业务中定义的某些POJO类，我们在比较的时候并不关心指针是否指向同一个对象，我们只想知道它们在逻辑上是否相等。
+
+不过有一种值类无需覆盖equals，即枚举类型。因为它用受控实例确保每个值至多存在一个对象。
+
+### 2.1.3 重写的规范
+
+在重写的时候，必须要遵守它的通用约定，以确保程序不会发生严重的错误：
+
+- 自反性：对于非null引用值x，`x.equals(x)`必须返回true；
+
+- 对称性：对于非null引用值x、y，当且仅当`y.equals(x)`为true时，`x.equals(y)`返回true；
+
+- 传递性：对于非null引用值x、y、z，若`x.equals(y)`为true，`y.equals(z)`为true，则`x.equals(z)`也为true；
+
+- 一致性：对于非null引用值x、y，只要equals进行比较时用到的实例信息没有被修改，那么多次调用的返回值一致；
+
+- 非空性：对于非null引用值x，`x.equals(null)`必须返回false。
+
+### 2.1.4 重写的技巧
+
+- 使用 == 操作符检查“参数是否可能为这个对象的引用”。在某些情况下，调用equals方法的成本可能是很高的，那么直接比较地址可能更为有效的得出结果；
+
+- 使用`instanceof`操作符检查“参数是否为正确的类型”。不仅可以处理掉null值，也可以为接下来的类型转换规避`ClassCastException`异常；
+
+- 把参数转换成正确类型。因为进行了`instanceof`的判断，所以转换会确保成功；
+
+- 对于类中的关键属性，检查参数中的属性是否匹配
+
+
+~~~java
+public final class PhoneNumber {
+    private final int areaCode,prefix,lineNum;
+
+    public PhoneNumber(int areaCode, int prefix, int lineNum) {
+        this.areaCode = rangeCheck(areaCode,999,"area code");
+        this.prefix = rangeCheck(prefix,999,"prefix");
+        this.lineNum = rangeCheck(lineNum,9999,"line num");
+    }
+    private static int rangeCheck(int val,int max,String arg){
+        if(val<0||val>max){
+            throw new IllegalArgumentException(arg+":"+val);
+        }
+        return val;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if(obj==this)return true;
+        if(!(obj instanceof PhoneNumber)) return false;
+        PhoneNumber phoneNumber = (PhoneNumber) obj;
+        return phoneNumber.areaCode==this.areaCode&&phoneNumber.prefix==this.prefix
+                &&phoneNumber.lineNum==this.lineNum;
+    }
+}
+
+public class Test {
+    public static void main(String[] args) {
+        PhoneNumber phoneNumber1=new PhoneNumber(86,0663,1234);
+        PhoneNumber phoneNumber2=new PhoneNumber(86,0663,1234);
+        System.out.println(phoneNumber1.equals(phoneNumber2)); // true
+    }
+}
+~~~
+
+### 2.1.5 需要注意的点
+
+- 重写`equals`时一定要重写`hashcode`；
+- 别把`equals`方法搞得太智能，简单做属性的比对就可以了；
+- 别把`equals`方法中的`Object`入参替换为其它类型（**因为这是重载不是重写**）；
+
+编写`equals`和`hashcode`方法是十分繁琐的，所以现在往往用现成的工具，如Google的`AutoValue`或者`lombok`，亦或是直接使用IDE自带的代码生成。
