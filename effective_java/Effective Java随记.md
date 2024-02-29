@@ -1011,3 +1011,58 @@ public class Test {
 - 别把`equals`方法中的`Object`入参替换为其它类型（**因为这是重载不是重写**）；
 
 编写`equals`和`hashcode`方法是十分繁琐的，所以现在往往用现成的工具，如Google的`AutoValue`或者`lombok`，亦或是直接使用IDE自带的代码生成。
+
+## 2.2 覆盖equals时总要覆盖hashCode
+
+当我们覆盖了`equals`时，总要覆盖`hashCode`，举个例子：
+
+~~~java
+public class Person {
+    String name;
+    String id;
+}
+~~~
+
+理论上来说，两个对象的名字和身份证如果一样的话，这两个人就应该是同一个人。
+
+~~~java
+public static void main(String[] args) {
+    Person person1=new Person("a","1");
+    Person person2=new Person("a","1");
+    System.out.println(person1.equals(person2)); // false
+}
+~~~
+
+因此我们需要覆盖原本的`equals`，但是当我们使用Map的时候，其存放位置是根据对象的`hashCode`进行计算的，此时对于我们来说`person1`和`person2`是同一个人，但是对于Map来说，这是两个不同的对象，是可以一起存入Map中的，这就出现了矛盾。因此我们在覆盖`equals`时总要覆盖`hashCode`。
+
+**如何覆盖`hashcode`?**
+
+~~~java
+public class PhoneNumber {
+    private final int areaCode,prefix,lineNum;
+
+    @Override
+    public int hashCode(){ // 手动覆盖，性能较好
+        int result=Integer.hashCode(areaCode);
+        result=31*result+Integer.hashCode(prefix);
+        result=31*result+Integer.hashCode(lineNum);
+        return result;
+    }
+
+    public int hashCode2(){ // Objects自带的，性能一般
+        return Objects.hash(areaCode,prefix,lineNum);
+    }
+    private int hashCode;
+    public int hashCode3(){ // 对于不可变的类，且hashCode计算开销大，可将其缓存在对象内部
+        int result=hashCode;
+        if(result==0){
+            result=Integer.hashCode(areaCode);
+            result=31*result+Integer.hashCode(prefix);
+            result=31*result+Integer.hashCode(lineNum);
+        }
+        return result;
+    }
+}
+~~~
+
+当然，通常来说，我们可以使用框架自带的覆盖hashCode注解。
