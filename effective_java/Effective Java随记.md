@@ -1080,3 +1080,148 @@ public class PhoneNumber {
   - 如果指定了格式，通常最好再提供一个相匹配的静态工厂或者构造器，以便程序员可以很容地在对象及其字符串表示法之间来回转换。
 - 无论是否决定指定格式，都应该在文档中明确地表明你的意图。
 - 不论是否指定格式，都为`toString`返回值中包含的所有信息提供一种可以通过编程访问的模式
+
+## 2.4 谨慎地覆盖clone
+
+调用clone()方法需要对象实现Cloneable接口,该接口决定了Object中受保护的clone方法的实现行为：
+
+- 如果一个类实现了Cloneable接口，Object的clone方法返回该对象的逐域拷贝；
+- 如果一个类未实现Cloneable接口，则该对象就会抛出CloneNotSupportedException异常。
+
+对于Cloneable接口，**它改变了超类中受保护的方法的行为。**
+
+### 2.4.1 clone 方法规范
+
+如果实现Cloneable接口是要对某个类起到作用，类和它的所有超类都必须遵守一个相当复杂的、不可实施的，并且基本上没有文档说明的协议。由此得到一种语言之外的机制：**无需调用构造器就可以创建对象。**
+
+clone 方法的通用约定是非常弱的，下面是摘自 Object 规范中的约定内容
+
+Clone方法用于创建和返回对象的一个拷贝，一般含义如下：
+
+1、对于任何对象x，表达式`x.clone()!=x` 将会是true，并且表达式 `x.clone().getClass() == x.getClass()`将会是true，**但这不是绝对要求**。
+
+2、通常情况下，表达式`x.clone.equals(x)`将会是true，**同1一样这不是绝对要求**。
+
+### 2.4.2 存在的问题
+
+#### ① 绕过构造器存在风险
+
+比如下面的代码：
+
+~~~java
+public class User implements Cloneable{
+    int id;
+    String name;
+
+    public User(int id, String name) {
+        this.id = id;
+        this.name = name;
+        System.out.println("调用构造器");
+    }
+    public User() {
+    }
+    @Override
+    public User clone(){
+        try {
+            return (User) super.clone();
+        } catch (CloneNotSupportedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+
+public class Test {
+    public static void main(String[] args) {
+        User u1=new User(1,"c"); // 调用构造器
+        User u2 = u1.clone();
+        System.out.println(u1);  // User(id=1, name=c)
+        System.out.println(u2);  // User(id=1, name=c)
+    }
+}
+~~~
+
+可以看到，构造器只被调用了一次，也就是说，clone方法可以绕过构造器，因此，他也可以破坏单例模式。
+
+#### ② 浅拷贝问题
+
+`super.clone()`，这个操作主要是来做一次浅拷贝，他会把原对象完整的拷贝过来包括其中的引用。这样会带来问题，如果里面的某个属性是个可变对象，那么原来的对象改变，克隆的对象也跟着改变。所以在调用完`super.clone()`后，一般还需要重新拷贝可变对象。比如：
+
+~~~java
+public class SubUser extends User {
+    String[] address;
+
+    public SubUser(int id, String name, String[] address) {
+        super(id, name);
+        this.address = address;
+    }
+
+    public SubUser(String[] address) {
+        this.address = address;
+    }
+
+    @Override
+    public SubUser clone() {
+        return (SubUser) super.clone();
+    }
+}
+
+public class Test {
+    public static void main(String[] args) {
+        SubUser s1=new SubUser(2,"b",new String[]{"xx","cc"});
+        SubUser s2 = s1.clone();
+        s2.address[0]="dd";
+        System.out.println(s1.address[0]); // dd
+    }
+}
+~~~
+
+正确的做法应该是：
+
+~~~java
+@Override
+public SubUser clone() {
+    SubUser user = (SubUser) super.clone();
+    user.address=address.clone();
+    return user;
+}
+~~~
+
+在实践中，我们一般会假设：如果扩展一个类，并在子类中调用了`super.clone`，返回的对象就将是该子类的实例(我们要克隆的是子类而不是父类)。
+
+超类提供此功能的唯一途径是：**返回一个通过调用`super.clone`而得到的对象**。**如果clone方法返回一个由构造器创建的对象，它就会得到错误的类(当前父类而不是想要的子类**)。 因此，如果你覆盖了非final类中的clone方法，则应该返回一个通过调用`super.clone`而得到的对象。如果类的所有超类都遵守这条规则，那调用`super.clone`方法最终会调用`Object.clone`方法，从而创建正确类的实例，此机制类似于自动的构造器调用链，只不过它不是强制要求的。
+
+**综上：**
+
+- 不可变的类永远都不应该提供 clone 方法
+- `Cloneable` 结构与引用可变对象的 final 域的正常做法是不相兼容的。
+- clone 方法是浅拷贝（只拷贝一层），对类所引用的对象需手动拷贝
+
+#### ③ 链表
+
+对于类似于链表结构的域，我们应当每一个节点都进行拷贝，而不是单纯的拷贝其头节点
+
+### 2.4.3 更好的做法
+
+提供一个拷贝构造器或拷贝工厂来代替 clone 方法 拷贝构造器：
+
+~~~java
+public class MyObject {
+  public String field01;
+ 
+  public MyObject() {
+  }
+ 
+  public static MyObject newInstance(MyObject object) {
+    MyObject myObject = new MyObject();
+    myObject.field01 = object.field01;
+    return myObject;
+  }
+}
+~~~
+
+- 其不依赖于某一种很有风险的、语言之外的对象创建机制；
+- 其不遵守尚未制定好的文档规范；
+- 其不会与final域的正常使用发生冲突；
+- 其不会抛出不必要的受检查异常；
+- 其不需要类型转换；
+- 采用其代替clone方法时，并没有放弃接口功能特性
