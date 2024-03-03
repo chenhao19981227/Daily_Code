@@ -1225,3 +1225,108 @@ public class MyObject {
 - 其不会抛出不必要的受检查异常；
 - 其不需要类型转换；
 - 采用其代替clone方法时，并没有放弃接口功能特性
+
+## 2.5 考虑实现 Comparable 接口
+
+`compareTo` 方法并没有在 `Object` 类中声明。 相反，它是 `Comparable` 接口中的唯一方法。 它与 Object 类的 equals 方法在性质上是相似的，除了它允许在简单的相等比较之外的顺序比较，它是泛型的。 通过实现 `Comparable` 接口，一个类表明它的实例有一个自然顺序（natural ordering）。 对实现 `Comparable` 接口的对象数组排序非常简单（如下），几乎 Java 平台类库中的所有值类以及所有枚举类型都实现了 `Comparable` 接口。
+
+~~~java
+Arrays.sort(a);
+~~~
+
+对于自定义的类，我们需要自己定义排序规则，以下是几条约定：
+
+- 实现类必须确保所有 `x` 和 `y` 都满足 `sgn(x.compareTo(y)) == -sgn(y. compareTo(x))`。 （这意味着当且仅当 `y.compareTo(x)` 抛出异常时，`x.compareTo(y)` 必须抛出异常。）
+- 实现类还必须确保该关系是可传递的：`(x. compareTo(y) > 0 && y.compareTo(z) > 0)` 意味着 `x.compareTo(z) > 0`。
+- 最后，对于所有的 z，实现类必须确保 `x.compareTo(y) == 0` 意味着 `sgn(x.compareTo(z)) == sgn(y.compareTo(z))`。
+- 强烈推荐 `(x.compareTo(y) == 0) == (x.equals(y))`，但不是必需的。 一般来说，任何实现了 `Comparable` 接口的类违反了这个条件都应该清楚地说明这个事实。 推荐的语言是「注意：这个类有一个自然顺序，与 `equals` 不一致」。
+
+我们重点来看最后一条，虽然不强制，但当我们违反时，我们的程序有可能发生一些错误，如果违反，顺序关系被认为与 `equals` 不一致。 其 `compareTo` 方法施加与 `equals` 不一致顺序关系的类仍然有效，但包含该类元素的有序集合可能不服从相应集合接口（Collection，Set 或 Map）的一般约定。 这是因为这些接口的通用约定是用 `equals` 方法定义的，但是排序后的集合使用 `compareTo` 强加的相等性测试来代替 `equals`。 比如：
+
+　　考虑 `BigDecimal` 类，其 `compareTo` 方法与 `equals` 不一致。 如果你创建一个空的`HashSet`实例，然后添加 `new BigDecimal("1.0")` 和 `new BigDecimal("1.00")`，则该集合将包含两个元素，因为与 `equals` 方法进行比较时，添加到集合的两个 `BigDecimal` 实例是不相等的。 但是，如果使用 `TreeSet` 而不是 `HashSet` 执行相同的过程，则该集合将只包含一个元素，因为使用 `compareTo` 方法进行比较时，两个`BigDecimal`实例是相等的。
+
+**如何比较对象？**
+
+① 实现`Comparable`
+
+~~~java
+public class Person implements Comparable<Person> {
+    String name;
+    int id;
+
+    public Person(String name, int id) {
+        this.name = name;
+        this.id = id;
+    }
+    @Override
+    public int compareTo(Person o) {
+        return Integer.compare(this.id,o.id);
+    }
+
+    @Override
+    public String toString() {
+        return "Person{" +
+                "name='" + name + '\'' +
+                ", id=" + id +
+                '}';
+    }
+}
+~~~
+
+② 实现`Comparator`
+
+~~~java
+public class Person2 implements Comparator<Person2> {
+    String name;
+    int id;
+    public Person2(String name, int id) {
+        this.name = name;
+        this.id = id;
+    }
+    @Override
+    public String toString() {
+        return "Person{" +
+                "name='" + name + '\'' +
+                ", id=" + id +
+                '}';
+    }
+
+    @Override
+    public int compare(Person2 o1, Person2 o2) {
+        return o1.name.compareTo(o2.name);
+    }
+}
+~~~
+
+③ 使用`lambda`表达式
+
+~~~java
+public class Test {
+    public static void main(String[] args) {
+        Person p1=new Person("a",1);
+        Person p2=new Person("b",4);
+        Person p3=new Person("c",0);
+        Person[] persons=new Person[]{p3,p1,p2};    
+        Arrays.sort(persons, (o1, o2) -> o1.name.compareTo(o2.name));
+    }
+}
+~~~
+
+需要注意的是，在比较时，不用使用减法，如：
+
+~~~java
+o1.hashCode() - o2.hashCode();
+~~~
+
+它可能会导致整数最大长度溢出。推荐使用静态 `compare` 方法：
+
+~~~java
+Integer.compare(o1.hashCode(), o2.hashCode());
+~~~
+
+对于字符串，则使用：
+
+~~~java
+o1.name.compareTo(o2.name);
+~~~
+
