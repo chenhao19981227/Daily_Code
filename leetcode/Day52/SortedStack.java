@@ -19,6 +19,7 @@ class SortedStack {
         while (!temp.isEmpty())
             stack.push(temp.pop());
     }
+
     
     public void pop() {
         if(!isEmpty())
