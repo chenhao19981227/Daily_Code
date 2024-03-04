@@ -1330,3 +1330,86 @@ Integer.compare(o1.hashCode(), o2.hashCode());
 o1.name.compareTo(o2.name);
 ~~~
 
+# 三、类和接口
+
+## 3.1 使类和成员的可访问性最小化
+
+一个组件设计的好坏，**唯一重要的因素**在于，它对于外部的组件而言，**是否隐藏了其内部数据和其他实现细节**。这有利于组件间的解耦，方便各个组件独立的开发、测试、优化和使用。
+
+虽然信息隐藏本身并不会使组件拥有更好的性能，但它可以让我们更有效的调节性能。
+
+### 3.1.1 访问控制符
+
+Java 提供了许多机制来帮助信息隐藏。 其中，访问控制机制指定了类，接口和成员的可访问性。 实体的可访问性取决于其声明的位置，以及声明中存在哪些访问修饰符。 正确使用这些修饰符对信息隐藏至关重要。
+
+- private —— 该成员只能在声明它的顶级类内访问。
+- package-private —— 成员可以从被声明的包中的任何类中访问。从技术上讲，如果没有指定访问修饰符，就默认为这个级别。
+- protected —— 成员可以从被声明的类的子类中访问，以及它声明的包中的任何类。
+- public —— 该成员可以从任何地方被访问。
+
+### 3.1.2 该使用什么访问控制符
+
+原则：**让每个类或成员尽可能地不可访问。** 换句话说，使用尽可能低的访问级别。
+
+#### ① 顶层类和接口，尽量使用包级私有
+
+对于顶层（非嵌套的）类和接口，只有两个可能的访问级别：包级私有（package-private）和公共的（public）。如果你使用 public 修饰符声明顶级类或接口，那么它是公开的；否则，它是包级私有的。通过将其设置为包级私有，**可以将其作为实现的一部分，而不是导出的 API，你可以修改它、替换它，或者在后续版本中消除它，而不必担心损害现有的客户端。如果你把它公开，你就有义务永远地支持它，以保持兼容性。**
+
+#### ② 考虑私有静态嵌套类
+
+**如果一个包级私有顶级类或接口只被一个类使用，那么可以考虑将其作为私有静态嵌套类** 。这将它的可访问性从包级的所有类减少到使用它的一个类。但是，减少不必要的公共类的可访问性要比包级私有的顶级类更重要：公共类是包的 API 的一部分，而包级私有的顶级类已经是这个包实现的一部分了。
+
+#### ③ 什么时候将private改为default
+
+ 只有当同一个包中的其他类真的需要访问一个成员时，才应该删除私有修饰符，从而使该成员成为包级私有的。 如果你发现自己经常这样做，你应该重新检查你的系统的设计
+
+#### ④ 公共类的实例域绝不能是公有的
+
+如果一个实例字段是非 final 的，或者是对可变对象的引用（比如下面的代码），那么如果将其公开，就相当于你放弃了对该字段的值进行限制的能力。另外，当字段被修改时，你也没有对其采取任何行动的能力。**因此带有公共可变字段的类通常不是线程安全的** 。
+
+~~~java
+public class Thing {
+    public static final String[] VALUES={"1","2","3"};
+}
+public class Test {
+    public static void main(String[] args) {
+        Thing.VALUES[0]="4";
+        System.out.println(Thing.VALUES[0]);
+    }
+}
+~~~
+
+对于这种情况，我们通常有两种解决方法：
+
+~~~java
+public class Thing {
+    // 增加一个公有的不可变列表
+    private static final String[] PRE_VALUES={"1","2","3"};
+    public static final List<String> VALUES2= Collections.unmodifiableList(Arrays.asList(PRE_VALUES));
+}
+public class Test {
+    public static void main(String[] args) {
+        Thing.VALUES2[0]="4"; // 报错
+    }
+}
+~~~
+
+~~~java
+public class Thing {
+    private static final String[] PRE_VALUES={"1","2","3"};
+    public static final String[] values(){
+        return PRE_VALUES.clone();
+    }
+}
+public class Test {
+    public static void main(String[] args) {
+        // 此处为了方便测试，将PRE_VALUES改为public
+        String[] values = Thing.values();
+        values[0]="4";
+        System.out.println(Thing.PRE_VALUES[0]); // 1
+    }
+}
+~~~
+
+同样的建议适用于静态字段，但有一个例外。 假设常量是类的抽象的一个组成部分，你可以通过 public static final 字段暴露常量。 按照惯例，这些字段的名字由大写字母组成，字母用下划线分隔。 很重要的一点是，这些字段包含基本类型的值或对不可变对象的引用。 
+
