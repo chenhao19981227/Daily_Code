@@ -1413,3 +1413,55 @@ public class Test {
 
 同样的建议适用于静态字段，但有一个例外。 假设常量是类的抽象的一个组成部分，你可以通过 public static final 字段暴露常量。 按照惯例，这些字段的名字由大写字母组成，字母用下划线分隔。 很重要的一点是，这些字段包含基本类型的值或对不可变对象的引用。 
 
+## 3.2 要在公有类中使用访问方法而非公有域
+
+有时候，可能需要编写一些退化类，它们没有什么作用，只是用来集中实例域 ：
+
+~~~java
+class Point {
+    public double x;
+    public double y;
+}
+~~~
+
+由于这种类的数据域是可以被直接访问的，这些类没有提供封装的功能。 如果不改变 API，就无法改变它的数据表示法， 也无法强加任何约束条件；当域被访问的时候，无法采取任何辅助的行动 。 应该用包含私有域和公有访问方法（ getter ） 的类代替 。 对于可变的类来说，应该用公有设值方法（ setter ）的类代替 ：
+
+~~~java
+class Point {
+    private double x;
+    private double y;
+    pub1ic Point(double x, double y) {
+        this.x = x;
+        this.y = y;
+    }
+    public double getX() { return x; }
+    public double getY() { return y; }
+    public void setX(double x) { this.x = X; }
+    public void setY(double y) { this.y = y; }
+}
+~~~
+
+如果类可以在它所在的包之外进行访问，就提供访问方法，以保留将来改变该类的内部表示法的灵活性 。如果公有类暴露了它的数据域 ，要想在将来改变其内部表示法是不可能的，因为公有类的客户端代码已经遍布各处了 。
+
+然而 ， **如果类是包级私有的，或者是私有的嵌套类， 直接暴露它的数据域并没有本质的错误**——假设这些数据域确实描述了该类所提供的抽象 。 无论是在类定义中，还是在使用该类的客户端代码中，这种方法比访问方法的做法更不容易产生视觉混乱 。 虽然客户端代码与该类的内部表示法紧密相连，但是这些代码被限定在包含该类的包中 。 如有必要，也可以不改变包之外的任何代码，而只改变内部数据表示法 。 在私有嵌套类的情况下，改变的作用范围被进一步限制在外围类中 。
+
+让公有类直接暴露域虽然从来都不是种好办法，但是如果域是不可变的，这种做法的危害就比较小一些 。 如果不改变类的 API ，就无法改变这种类的表示法，当域被读取的时候，你也无法采取辅助的行动，但是**可以强加约束条件** 。 例如，这个类确保了每个实例都表示一个有效的时间：
+
+```java
+public final class Time {
+    private static final int HOURS_PER_DAY = 24;
+    private static final int MINUTES_PER_HOUR = 60;
+    public final int hour;
+    public final int minute;
+
+    public Time(int hour, int minute) {
+        if (hour < 0 || hour >= HOURS_PER_DAY)
+            throw new IllegalArgumentException("Hour: " + hour);
+        if (minute < 0 || minute >= MINUTES_PER_HOUR)
+            throw new IllegalArgumentException("Min:"+ minute);
+        this.hour = hour;
+        this.minute = minute;
+    }
+    ... // Remainder omitted
+}
+```
