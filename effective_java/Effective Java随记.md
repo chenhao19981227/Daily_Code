@@ -1465,3 +1465,116 @@ public final class Time {
     ... // Remainder omitted
 }
 ```
+
+## 3.3 使可变性最小化
+
+不可变类从其开始被创建，至其生命周期结束，其状态都是不可变的。`Java`类库中也提供了许多不可变类，如`String`、`BigInteger`、`BigDecimal`等。
+
+### 创建不可变类
+
+为了创建不可变类，可遵循以下5条规则：
+
+1. 为类的域不提供修改对象状态的方法，通常就是`setter`方法；
+
+2. 类不可被继承：类不可被继承有两种实现方式。一为类用`final`修饰，表示不可被继承；二为类不提供公有构造方法，采用私有构造方法，如果需要构造类则提供静态工厂方法。
+3. 类的域都声明为`final`
+4. 类的域都声明为`private`
+5. 对类的任何可变组件确保是互斥访问：如果类有任何域涉及到可变对象，务必要确保类的调用方不能获取到该可变对象的引用
+
+针对规则1、3和4，可能比较苛刻，在适当的时候可以考虑放松，譬如一些不可变类可能需要包含一个或多个非`final`的属性，用来缓存在计算中浪费性能的数据，从而节约开销。
+
+构建一个不可变类实例：
+
+~~~java
+public final class Complex {
+    private final double re;
+    private final double im;
+
+    public Complex(double re, double im) {
+        this.re = re;
+        this.im = im;
+    }
+
+    // 只提供getter，不提供setter
+    public double realPart() { return re; }
+    public double imaginaryPart() { return im; }
+
+    //加
+    public Complex add(Complex c) {
+        return new Complex(re + c.re, im + c.im);
+    }
+
+    //减
+    public Complex subtract(Complex c) {
+        return new Complex(re - c.re, im - c.im);
+    }
+
+    //乘
+    public Complex multiply(Complex c) {
+        return new Complex(re * c.re - im * c.im,
+            re * c.im + im * c.re);
+    }
+
+    //除
+    public Complex divide(Complex c) {
+        double tmp = c.re * c.re + c.im * c.im;
+        return new Complex((re * c.re + im * c.im) / tmp,
+            (im * c.re - re * c.im) / tmp);
+    }
+
+    @Override public boolean equals(Object o) {
+        if (o == this)
+            return true;
+            if (!(o instanceof Complex))
+                return false;
+
+            Complex c = (Complex) o;
+            return Double.compare(re, c.re) == 0 && Double.compare(im, c.im) == 0;
+    }
+
+    @Override public int hashCode() {
+        int result = 17 + hashDouble(re);
+        result = 31 * result + hashDouble(im);
+        return result;
+    }
+
+    private int hashDouble(double val) {
+        long longBits = Double.doubleToLongBits(re);
+        return (int) (longBits ^ (longBits >>> 32));
+    }
+
+    @Override public String toString() {
+        return "(" + re + " + " + im + "i)";
+    }
+}
+~~~
+
+从上面代码中的加、减、乘、除方法可以看出，结果返回的都是重新构建的新对象，而不是对原对象的修改。这种方式通常被称为函数方式，相比于过程和命令的方式，就是不改变对象的状态。
+
+**不可变类优缺点**
+
+**优点**
+
+- 不可变类简单
+
+- 不可变类从被创建，其状态都不会被改变
+
+- 不可变类是线程安全的，不需要synchronized
+
+- 不可变类可以被自由共享使用
+
+- 不可变类中对于经常使用的类可以先创建缓存起来，之后可以直接调用。参见Boolean中的TRUE、FALSE。
+
+- 不可变类不仅可以共享其实例，还可以共享其内部。参见BigInteger的negate方法。
+
+
+- 不可变对象为其他可变或不可变对象提供大量的构件。如果你知道一个复杂对象内部的组件对象是不可变的，那么维护他的约束关系就更容易。这条原则的一个例子是，不可变对象构成了大量的map key和set元素，一旦不可变对象进入map或set中，你就不必担心他们的值变化导致破坏map和set的约束关系。
+
+**缺点**
+
+不可变的缺点是为了区分值的不同，都需要创建一个对象。这涉及到资源的问题。特别是如果不可变类是在循环中被创建的，会导致产生大量的临时不可变对象。
+
+针对上面的问题解决方法有两种：
+
+- 判断哪些步骤是多次循环创建对象，其不可变对象的创建可否采用基本类型代替。如BigInteger用int；
+- 如果不能用基本类型代替，则看是否有可变配套类提供。常见的是String的可变配套类为StringBuilder
