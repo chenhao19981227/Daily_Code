@@ -1578,3 +1578,197 @@ public final class Complex {
 
 - 判断哪些步骤是多次循环创建对象，其不可变对象的创建可否采用基本类型代替。如BigInteger用int；
 - 如果不能用基本类型代替，则看是否有可变配套类提供。常见的是String的可变配套类为StringBuilder
+
+## 3.4 复合优先于继承
+
+面向对象编程中，有一条非常经典的设计原则，那就是：组合优于继承，多用组合少用继承。
+
+当然，继承分两种，实现继承和接口继承，此处讲的是**实现继承**。
+
+### 3.4.1 在实际开发中继承的缺点
+
+与方法调用不同，继承打破了封装性:
+
+子类依赖于其超类中的特定功能的实现细节，如果需要覆盖超类的方法，就必须要知道超类所有的方法的内部逻辑，否则会照成意想不到的事故 举个例子:
+
+~~~java
+public class MyHashSet<E> extends HashSet<E> {
+    private int addCount=0;
+    public MyHashSet(){};
+    public MyHashSet(int initCap,float loadFactor){
+        super(initCap,loadFactor);
+    }
+
+    @Override
+    public boolean add(E e) {
+        addCount++;
+        return super.add(e);
+    }
+
+    @Override
+    public boolean addAll(Collection<? extends E> c) {
+        addCount+=c.size();
+        return super.addAll(c);
+    }
+    public int getAddCount(){
+        return addCount;
+    }
+}
+public class Test {
+    public static void main(String[] args) {
+        MyHashSet<String> myHashSet=new MyHashSet();
+        myHashSet.addAll(List.of("a","b","c"));
+        System.out.println(myHashSet.getAddCount()); // 6
+    }
+}
+~~~
+
+在上面的代码中，我们实现了一个新的`HashSet`，希望能记录自它被创建以来共添加了多少个元素。而`HashSet`中添加的方法有两个：`add()`，`addAll()`，我们需要重写这两个方法。理论上来说最终打印的结果应该是3，但实际结果确为6，问题出在哪？
+
+我们通过查看`addAll()`源码可以看出，它自身调用了`add()`方法，这就导致重复计数了。实际上这是类中方法的”自用性“导致的，但我们并不一定知道其中的实现细节，所以盲目的继承可能就会导致一定的问题。
+
+~~~java
+public boolean addAll(Collection<? extends E> c) {
+    boolean modified = false;
+    for (E e : c)
+        if (add(e))
+            modified = true;
+    return modified;
+}
+~~~
+
+### 3.4.2 复合/转发
+
+有一种方法可以避免以上的所有问题。不用扩展现有的类，而是在新的类中增加一个私有对象，它引用现有类的一个实例，这种设计被称作为复合，因为现有的类变成了新类的一个组件，新类中的每个实例方法都可以调用被包含的现有类实例中对应的方法，并返回它的结果，这称为转发，新类中的方法被称为转发方法。
+
+~~~java
+public class MyHashSet2<E> extends ForwardingSet<E>{
+    private int addCount=0;
+    public MyHashSet2(Set<E> s) {
+        super(s);
+    }
+
+    @Override
+    public boolean add(E e) {
+        addCount++;
+        return super.add(e);
+    }
+
+    @Override
+    public boolean addAll(Collection<? extends E> c) {
+        addCount+=c.size();
+        return super.addAll(c);
+    }
+
+    public int getAddCount() {
+        return addCount;
+    }
+}
+
+public class ForwardingSet<E> implements Set<E> {
+    private final Set<E> s;
+
+    public ForwardingSet(Set<E> s) {
+        this.s = s;
+    }
+
+    @Override
+    public int size() {
+        return s.size();
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return s.isEmpty();
+    }
+
+    @Override
+    public boolean contains(Object o) {
+        return s.contains(o);
+    }
+
+    @Override
+    public Iterator<E> iterator() {
+        return s.iterator();
+    }
+
+    @Override
+    public Object[] toArray() {
+        return s.toArray();
+    }
+
+    @Override
+    public <T> T[] toArray(T[] a) {
+        return s.toArray(a);
+    }
+
+    @Override
+    public boolean add(E e) {
+        return s.add(e);
+    }
+
+    @Override
+    public boolean remove(Object o) {
+        return s.remove(o);
+    }
+
+    @Override
+    public boolean containsAll(Collection<?> c) {
+        return s.containsAll(c);
+    }
+
+    @Override
+    public boolean addAll(Collection<? extends E> c) {
+        return s.addAll(c);
+    }
+
+    @Override
+    public boolean retainAll(Collection<?> c) {
+        return s.retainAll(c);
+    }
+
+    @Override
+    public boolean removeAll(Collection<?> c) {
+        return s.removeAll(c);
+    }
+
+    @Override
+    public void clear() {
+        s.clear();
+    }
+}
+
+public class Test {
+    public static void main(String[] args) {
+        MyHashSet2<String> myHashSet2=new MyHashSet2<>(new HashSet<>());
+        myHashSet2.addAll(List.of("a","b","c"));
+        System.out.println(myHashSet2.getAddCount()); // 3
+    }
+}
+~~~
+
+当你使用组合/转发模式时，`MyHashSet2` 类不是直接继承 `HashSet`，而是通过 `ForwardingSet`一个 `Set` 实例并转发调用。这意味着，尽管底层的 `Set`（例如 `HashSet`）的 `addAll` 实现可能会调用它自己的 `add` 方法来添加每个元素，但这些调用不会直接触发 `MyHashSet2` 中覆盖的 `add` 方法，因为它们是在底层 `Set` 的上下文中，而不是 `MyHashSet2` 的上下文中进行的。
+
+换句话说，当你在 `MyHashSet2` 类中覆盖 `addAll` 方法时，如果你直接调用 `super.addAll(c)`，实际上调用的是 `ForwardingSet` 中转发的 `addAll` 方法，该方法又会调用底层 `Set` 的 `addAll` 方法。此时，`MyHashSet2` 的 `add` 方法不会因为 `HashSet` 的 `addAll` 方法内部可能进行的 `add` 调用而被间接触发。因此，`MyHashSet2` 中的 `addCount` 增加的控制变得更加明确和直接，不会因为 `addAll` 方法内部的 `add` 调用而受到影响。
+
+实际上这种思想便是装饰者模式。
+
+### 3.4.3 复合相比较于继承的优点和缺点
+
+1、优点
+
+通过在新类增加一个私有域，引用原本的超类(后面同意叫需要叫现有类)，使现有类变成新类的一个组件，而新类的方法都可以调用现有类里面的对应的方法，这个也叫转发
+没有打破封装，就算现有类添加新的方法，或者修改原来方法的逻辑(方法入参和返回结果不能有改变)，也不会影响到新类
+
+2、缺点：
+
+不适合回调框架，因为回调框架是把对象自身的引用传递给其他的对象，用于后续的调用，但是包装起来的对象并不知道它外面的对象，所以它传递一个执行自身的引用，回调时避开了外面的包装对象，这也被称为SELF问题
+
+### 3.4.4 何时使用继承，何时使用复合？
+
+1、只有当子类真正是超类的子类型时，也就是说，对于两个类A和B，只有当两者之间确实存在"is-a"关系的时候才使用继承，否则使用复合。
+
+2、如果子类只需要实现超类的部分行为，则考虑使用复合。
+
+3、如果你试图扩展的类它的API有缺陷，继承机制会把缺陷传递给子类，而复合则允许设计新的API来隐藏这些缺陷。
+
