@@ -1,4 +1,4 @@
-package effective_java.chapter4_classes_and_interfaces.item16;
+package effective_java.chapter4_classes_and_interfaces.item17;
 
 public class Test {
     public static void main(String[] args) {

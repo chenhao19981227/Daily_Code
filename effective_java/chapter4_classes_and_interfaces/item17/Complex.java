@@ -1,4 +1,4 @@
-package effective_java.chapter4_classes_and_interfaces.item16;
+package effective_java.chapter4_classes_and_interfaces.item17;
 
 public final class Complex {
     private final double re;
