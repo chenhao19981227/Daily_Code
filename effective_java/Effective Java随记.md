@@ -1772,3 +1772,168 @@ public class Test {
 
 3、如果你试图扩展的类它的API有缺陷，继承机制会把缺陷传递给子类，而复合则允许设计新的API来隐藏这些缺陷。
 
+## 3.5 要么设计继承并提供说明文档，要么禁止继承
+
+文档必须精确地描述覆盖每个方法所带来的影响。该类必须有文档说明它可覆盖的方法的自用性。对于每个公有的或受保护的方法或者构造器，它的文档必须指明该方法或者构造器调用了哪些可覆盖的方法，是以什么顺序调用的，每个调用的结果又是如何影响后续的处理过程的。更一般的，类必须在文档中说明，在哪些情况下它会调用可覆盖的方法。
+
+按惯例，如果方法调用到了可覆盖的方法，在它的文档注释的末尾应该包含关于这些调用的描述信息。这段描述信息要以这样的句子开头：“**This implementation...**”。这样的句子不应该被认为是在表明该行为可能会随着版本的变迁而改变。它意味着这段描述关注该方法的内部工作情况
+
+~~~java
+public boolean remove(Object o)  
+  Removes a single instance of the specified element from this collection, if it is present (optional operation). More formally, removes  
+ an element e such that (o==null ? e==null : o.equals(e)), if this collection contains one or more such elements. Returns true if this   
+collection contained the specified element (or equivalently, if this collection changed as a result of the call).  
+  This implementation iterates over the collection looking for the specified element. If it finds the element, it removes the element   from the collection using the iterator's remove method.  
+
+（如果这个集合中存在制定的元素，就从中删除该指定元素中的单个实例（这是项可选的操作）。更一般地，如果集合中包含一个或者多个这样的元素e，就从中删除这种元素，以便（o == null ？ e==null：o.equals(e)）。如果集合中包含制定的元素，就返回true（如果调用最终改变了集合，也一样）
+
+该实现遍历整个集合来查找制定的元素。如果它找到该元素，将会利用迭代器的remove方法将之从集合中删除。注意，如果由该集合的iterator方法返回的迭代器没有实现remove方法，该实现就会抛出UnsupportedOperationException。）
+~~~
+
+该文档清楚地说明了，覆盖iterator方法将会影响remove方法的行为。而且，它确定地描述了iterator方法返回的Iterator的行为将会怎样影响remove方法的行为。
+
+**与此相反的是，对于HashSet，并无说明覆盖add方法是否会影响addAll方法的行为。**
+
+对于程序文档的格言：好的API文档应该描述一个给定的方法做了什么工作，而不是描述它是如何做到的。由此看来，上面的这段文档违背了这一格言，这正是继承破坏了封装性所带来的不幸后果，因为在上面这段文档中它必须要说明清楚调用可覆盖方法所带来的影响。所以，为了设计一个类的文档，以便它能够被安全的子类化，必须描述清楚那些有可能未定义的实现细节。
+
+## 3.6 接口优于抽象类
+
+### 3.6.1 接口和抽象类
+
+Java中抽象类和接口的区别
+
+### 3.6.2 接口优点
+
+1、现有的类可以很容易的被更新，以实现新的接口。
+
+如果你前期编写了一个类A，后期有在系统中加入了一个新的接口B，当你想让前期编写的类来实现这个接口，你只用加上一句implement B，然后在类A中实现里面的方法即可，不会影响到以前的类对类A的使用。
+
+但是抽象类就不一样了，因为他用的是继承，如果你让A继承一个抽象类，会导致A的子类也跟着间接继承了这个抽象类。
+
+2、接口是定义mixin（混合类型）的理想选择。
+
+一个类可以实现多个接口。一个类除了可以实现一个它的主要类型接口之外，还可以加入一些辅助接口来实现一些新的功能。
+
+3、接口允许我们构造非层次结构的类型框架。
+
+其实就是说，接口可以多实现。不用像继承一样层次分明。
+
+例：假设我们有一个接口代表一个singer，另一个接口代表一个songweiter。
+
+~~~java
+public interface Singer{
+ AudioClip sing(Song s);
+}
+public interface Songwriter{
+ Song compose(boolean hit);
+}
+~~~
+
+在现实生活中，有些歌唱家本身也是作曲家。因为我们使用了接口而不是抽象类来定义这些类型，所以对于单个类而言，它同时实现Singer和Songwriter是允许的，实际上我们可以定义第三个接口，他同时扩展了Singer和Songwriter，并添加了一些适合于这种组合的新方法：
+
+~~~java
+public interface SingerSongwriter extends Singer, Songwriter{
+ AudioClip strum();
+ void actSensitive();
+}
+~~~
+
+你并不是总是需要这种灵活性，但是一旦你这样做了，接口能帮助你解决大问题。
+
+另外一种做法是编写一个臃肿的类层次，对于每一种要被支持的属性组合，都包含一个单独的类。如果在整个类型系统中有n个属性，那么必须支持2^n种可能的组合。这种现象被称为“组合爆炸”。类层次的臃肿也导致类也臃肿，这些类也包含许多方法，并且这些方法只是在参数的类型上有所不同而已，因为类层次中没有任何类型体现公共的行为特征。
+
+4、接口可以使得类的增强变得安全。
+
+比如3.4中为HashSet添加计数功能的例子
+
+### 3.6.3 骨架类
+
+java 8之前接口是不可以有方法体的，这就是抽象类相对于接口的优势，为了将抽象类和接口的优势整合起来，“骨架类”就诞生了，骨架类的做法是用一个抽象类来实现一个接口，在抽象类中为接口的某些方法提供实现。
+
+骨架类的实现的一般步骤是:
+
+1.找出接口中的基本方法
+2.在抽象类中声明为抽象方法
+3.然后用这些基本方法来实现其他方法，所谓基本方法，就是通过将这些方法组合或是变换，可以实现其他的方法。
+
+编写骨架实现类：
+
+首先，必须认真研究接口，并确定哪些方法时最为基本的，其他方法则可以根据它们来实现。这些方法将成为骨架实现类中的抽象方法。
+然后，必须为接口中的所有其他的方法提供具体实现。比如：
+
+~~~java
+// 求和接口
+public interface Summation<T>{
+    // 实现两个对象的相加
+    T towEleAdd(T obj01, T obj02);
+
+    // 实现List求和
+    T listEleSum(List<T> list);
+
+    // 实现数组求和
+    T arrayEleSum(T[] array);
+}
+// 骨架类
+public abstract class AbstractSummation<T> implements Summation<T>{
+    @Override
+    public abstract T towEleAdd(T obj01, T obj02);
+    @Override
+    public T listEleSum(List<T> list) {
+        T firstEle = null;
+        for (T t : list) {
+            if (firstEle == null) {
+                firstEle = t;
+                continue;
+            }
+            firstEle = towEleAdd(firstEle, t);
+        }
+        return firstEle;
+    }
+    @Override
+    public T arrayEleSum(T[] array) {
+        T firstEle = null;
+        for (T t : array) {
+            if (firstEle == null) {
+                firstEle = t;
+                continue;
+            }
+            firstEle = towEleAdd(firstEle, t);
+        }
+        return firstEle;
+    }
+}
+// 客户端
+public class Client {
+    public static void main(String[] args) {
+        MySummation mySummation=new MySummation();
+        Object[] nums= new Object[]{1,2,3};
+        System.out.println(mySummation.arrayEleSum(nums));
+    }
+}
+~~~
+
+但是在java8中，接口可以有默认方法了，所以也可以在接口中实现：
+
+~~~java
+public interface Summation2<T> {
+    // 实现两个对象的相加
+    T towEleAdd(T obj01, T obj02);
+
+    // 实现List求和
+    T listEleSum(List<T> list);
+    // 实现数组求和
+
+    default T arrayEleSum(T[] array) {
+        T firstEle = null;
+        for (T t : array) {
+            if (firstEle == null) {
+                firstEle = t;
+                continue;
+            }
+            firstEle = towEleAdd(firstEle, t);
+        }
+        return firstEle;
+    }
+}
+~~~
+
