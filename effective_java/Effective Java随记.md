@@ -1937,3 +1937,109 @@ public interface Summation2<T> {
 }
 ~~~
 
+## 3.7 为后代设计接口
+
+ 在Java 8 发行之前，如果不破坏现有的实现，是不可能给接口添加方法的。如果给某个接口添加了一个新的方法，一般来说，现有的实现中是没有这个方法的，因此就会导致编译错误。在Java 8 中，增加了缺省方法，目的就是允许给现有的接口添加方法。但是给现有接口添加新方法还是充满风险的。
+
+缺省方法的声明中包括一个缺省实现（default implementation），这是给实现了该接口但没有实现默认方法的所有类使用的。虽然Java 中增加了缺省方法之后，可以给现有接口添加方法了，但是并不能确保这些方法在之前存在的实现中都能良好运行。因为这些默认的方法是被“注入”到现有实现的，它们的实现者并不知道，也没有许可。在Java 8之前，编写这些实现时，是默认它们的接口永远不需要任何新方法的。
+
+Java 8 在核心集合接口中增加了许多新的缺省方法，主要是为了便于使用 lambda。Java 类库的缺省方法是高品质的通用实现，它们在大多数情况下都能正常使用。但是，并非每一个可能的实现的所有变体，始终都可以编写出一个缺省方法。
+
+这种情况一方面方便了扩展工作，但同时也不可避免的带来一些副作用。接口的default 方法便是如此，对于一个接口的扩展工作而言，添加新的方法，为了避免对实现类的破坏性更新，很多时候需要使用default 方法来避免实现类编译报错，不过有些时候就会造成一些问题。有时候问题比较小，就是default 方法对于某些具体实现可能不起作用。而有些时候问题可能严重，会造成某些具体实现类的功能被破坏。
+
+比如下面的例子：
+
+~~~java
+// 用户接口
+public interface IUser {
+    void setName(String name);
+    void setPassword(String password);
+    String getName();
+    String getPassword();
+    default void setPasswordIf(String password, Predicate<String> filter){
+        if(filter.test(password)){
+            setPassword(password);
+        }
+    }
+}
+// 用户类的普通实现
+public class User implements IUser{
+    private String name;
+
+    private String password;
+    @Override
+    public void setName(String name) {
+        this.name=name;
+    }
+
+    @Override
+    public void setPassword(String password) {
+        this.password=password;
+    }
+
+    @Override
+    public String getName() {
+        return name;
+    }
+
+    @Override
+    public String getPassword() {
+        return password;
+    }
+}
+// 用户类的特殊实现，这里要求对密码进行二次确认。
+public class MyUser implements IUser {
+    private String name;
+
+    private String password;
+
+    private String tmp;
+
+    @Override
+    public String getName() {
+        return name;
+    }
+
+    @Override
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    @Override
+    public String getPassword() {
+        return password;
+    }
+
+    @Override
+    public void setPassword(String password) {
+        if (password != null)
+            this.tmp = password;
+    }
+
+    public void confirmPassword(String password) {
+        if (Objects.equals(tmp, password)) {
+            this.password = password;
+            this.tmp = null;
+        }
+    }
+}
+// 测试
+public class Test {
+    public static void main(String[] args) {
+        User user=new User();
+        user.setPasswordIf("b", s -> !s.isEmpty());
+        System.out.println(user.getPassword()); // b
+
+        MyUser myUser=new MyUser();
+        myUser.setPasswordIf("c",s -> !s.isEmpty());
+        System.out.println(myUser.getPassword()); // null
+    }
+}
+
+~~~
+
+其原因归根到底，在于“接口不知道自己有多少实现类” 。 最终导致的结果就是，在添加 default 方法的时候，接口不知道实现类究竟有几个，是怎么实现的。只能按照最普遍，最一般的写法来实现。 这样的话，对于常规的类是没有问题的。但对于“特殊定制”，比如上面的要求二次确认等，这一类不太常见的需求的时候， 接口的 default 方法非常容易无效化，或者造成破坏性后果。
+
+所以，在设计接口的时候，尽量灵活一些，能够适当考虑以后的变化。不要指望已经开始实现之后，再去添加 default 方法来满足新的需求，这种情况很容易照顾不到一些特殊的类。
+
+**最后，补充说明，以上的情况其实说的都是公开的程序，会暴露API给其他程序的这种开放性的程序。对于纯内部的项目，不会有其他人，其他程序 来对接的项目，这些都不是问题，因为API 的影响范围只在内部，无非是上下游，前后端一起修改的事情。这种情况不需要多说什么，怎么开发都行。**
