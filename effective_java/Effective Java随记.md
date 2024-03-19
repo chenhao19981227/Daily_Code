@@ -2043,3 +2043,75 @@ public class Test {
 所以，在设计接口的时候，尽量灵活一些，能够适当考虑以后的变化。不要指望已经开始实现之后，再去添加 default 方法来满足新的需求，这种情况很容易照顾不到一些特殊的类。
 
 **最后，补充说明，以上的情况其实说的都是公开的程序，会暴露API给其他程序的这种开放性的程序。对于纯内部的项目，不会有其他人，其他程序 来对接的项目，这些都不是问题，因为API 的影响范围只在内部，无非是上下游，前后端一起修改的事情。这种情况不需要多说什么，怎么开发都行。**
+
+## 3.8 接口只用于定于类型
+
+当类实现接口时，接口就充当可以引用这个类的实例的类型。因此，类实现了接口，就表明可以对这个类的实例实施某些动作。那么，不是为了这个目的而定义接口就是不恰当的。比如常量接口，这种接口没有包含任何方法，它只包含静态的final域，每个域都导出一个常量。
+
+~~~java
+public interface PhysicalConstants {
+    static final double AVOGADROS_NUMBER = 6.022141;
+    static final double BOLTZMANN_CONSTANT = 1.12588456e-23;
+    static final double ELECTRON_MASS = 9.10938188e-31;
+}
+~~~
+
+常量接口模式是对接口的不良使用。 类在内部使用某些常量，这纯粹是实现细节。
+
+- 实现常量接口，会导致把这样的实现细节泄露到该类的导出API中。
+
+- 更糟糕的是，他代表了一种承诺：如果将来的发行版本中，这个类被修改了，他不再需要使用这些常量了，他依然必须实现这个接口，以确保二进制兼容性。
+- 如果非final类实现了常亮接口，他的所有子类的命名空间也会被接口中的常量所“污染”。
+
+**如果要导出常量，可以有几种合理的选择方案。**
+
+① 如果这些常量与某个现有的类或者接口紧密相关，就应该把这些常量添加到这个类或者接口中。例如，在java平台类库中所有的数值包装类，比如Integer和Double，都导出了MIN_VALUE和MAX_VALUE常量。
+
+~~~java
+public final class Integer extends Number implements Comparable<Integer> {
+    /**
+     * A constant holding the minimum value an <code>int</code> can
+     * have, -2<sup>31</sup>.
+     */
+    public static final int   MIN_VALUE = 0x80000000;
+
+    /**
+     * A constant holding the maximum value an <code>int</code> can
+     * have, 2<sup>31</sup>-1.
+     */
+    public static final int   MAX_VALUE = 0x7fffffff;
+}
+~~~
+
+② 如果这些常量最好被看做枚举类型的成员，就应该用枚举类型来导出这些常量。
+
+③ 使用不可实例化的工具类（utility class）来导出这些常量
+
+~~~java
+public class PhysicalConstants {
+
+    private PhysicalConstants(){}
+    //阿伏伽德罗数
+    public static final double AVOGADROS_NUMBER = 6.02214199e23;
+
+    //玻尔兹曼常数
+    public static final double BOLRZMANN_CONSTANT = 1.3806503E-23;
+
+    //电子质量
+    public static final double ELECTRON_MASS = 9.10938188E-31;
+}
+~~~
+
+工具类通常要求客户端要用类名来修饰这些常量名，例如PhysicalConstants.AVOGADROS_NUMBER。如果大量利用工具类导出的常量，可以通过利用静态导入（static import）机制。避免用类名来修饰常量名，不过静态导入机制是在java发行版本1.5中才引入的：
+
+~~~java
+import static effective_java.chapter4_classes_and_interfaces.item22.PhysicalConstants.AVOGADROS_NUMBER;
+
+public class Test {
+    public static void main(String[] args) {
+        System.out.println(AVOGADROS_NUMBER * 10);
+    }
+}
+
+~~~
+
