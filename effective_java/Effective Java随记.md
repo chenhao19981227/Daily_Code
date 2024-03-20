@@ -2112,6 +2112,76 @@ public class Test {
         System.out.println(AVOGADROS_NUMBER * 10);
     }
 }
+~~~
+
+## 3.9 类层次优先于标签类
+
+有时候，可能会遇到带有两种甚至多种风格的实例的类，并包含表示实例风格的标签（tag）域，例如，考虑下面这个类，它能够表示圆形或者矩形：
+
+~~~java
+public class Figure {
+    enum Shape{RECTANGLE,CIRCLE};
+    final Shape shape;
+    double length;
+    double width;
+    double radius;
+    Figure(double radius){
+        shape=Shape.CIRCLE;
+        this.radius=radius;
+    }
+    Figure(double length,double width){
+        shape=Shape.RECTANGLE;
+        this.length=length;
+        this.width=width;
+    }
+    double area(){
+        switch (shape){
+            case CIRCLE:
+                return Math.PI*(radius*radius);
+            case RECTANGLE:
+                return length*width;
+            default:
+                throw new AssertionError(shape);
+        }
+    }
+}
+~~~
+
+这种标签类（tagged class）有着许多缺点。他们中充斥着样板代码，包括枚举声明，标签域以及条件语句。由于多个实现乱七八糟地挤在了单个类中，破坏了可读性。内存占用增加了，因为实例承担着属于其他风格的不相关的域。域不能做成是final的，除非构造器初始化了不相关的域，产生更多的样板代码。构造器必须不借助编译器，来设置标签域，并初始化正确的数据域：如果初始化了错误的域，程序就会在运行时失败。无法给标签类添加风格，除非可以修改它的源文件。如果一定要添加风格，就必须记得给每个条件语句都添加一个条件，否则类就会在运行时失败。最后，实例的数据类型没有提供任何关于其风格的线索，**一句话，标签类过于冗长，容易出错，效率低下，且极度不灵活，很多地方都写死了。**
+
+幸运的是，面向对象的语言例如Java，就提供了其他更好地方法来定义能表示多种风格对象的单个数据类型：子类型化（subtyping）。标签类正是类层次的一种简单的仿效。
+
+~~~java
+abstract class Figure {
+    abstract double area();
+}
+
+public class Circle extends Figure{
+    final double radius;
+    Circle(double radius){
+        this.radius=radius;
+    }
+    @Override
+    double area() {
+        return Math.PI*(radius*radius);
+    }
+}
+
+public class Rectangle extends Figure{
+    final double length;
+    final double width;
+    Rectangle(double length,double width){
+        this.length=length;
+        this.width=width;
+    }
+    @Override
+    double area() {
+        return length*width;
+    }
+}
 
 ~~~
 
+这个类层次纠正了前面提到过的标签类的所有缺点。这段代码简单且清楚，没有包含在原来的版本中所见到的所有样板代码。每个类型的实现都配有自己的类，这些类都没有受到不相关的数据域的拖累。所有的域都是final的。编译器确保每个类的构造器都初始化它的数据域，对于根类中声明的每个抽象方法，都确保有一个实现。这样就杜绝了由于遗漏switch case 而导致运行时失败的可能性。多个程序员可以独立的扩展层次结构，并且不用访问根类的源代码就能相互操作。每种类型都有一种相关的独立的数据类型，允许程序员指明变量的类型，限制变量，并将参数输入到特殊的类型。
+
+类层次的另一种好处在于，他们可以用来反映类型之间本质上的层次关系，有助于增强灵活性，并进行更好地编译时类型检查。
