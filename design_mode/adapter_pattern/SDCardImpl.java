@@ -1,4 +1,4 @@
-package design_mode.decorator_pattern;
+package design_mode.adapter_pattern;
 
 public class SDCardImpl implements SDCard{
     @Override
