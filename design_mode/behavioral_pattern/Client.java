@@ -8,5 +8,13 @@ public class Client {
         lift.close();//关门
         lift.run();//运行
         lift.stop();//停止
+
+        System.out.println("----------------------------");
+        Context context = new Context();
+        context.setLiftState(new ClosingState());
+        context.open();
+        context.close();
+        context.run();
+        context.stop();
     }
 }
