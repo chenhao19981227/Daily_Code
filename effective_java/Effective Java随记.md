@@ -2327,3 +2327,64 @@ public class Test {
 这个教训很清楚：**永远不要将多个顶级类或接口放在一个源文件中**。
 
 遵循这个规则保证在编译时不能有多个定义。 这又保证了编译生成的类文件以及生成的程序的行为与源文件传递给编译器的顺序无关。
+
+# 四、泛型
+
+## 4.1 请不要使用原生态类型
+
+所谓的原生态类型，就是不加泛型的集合类型，比如：
+
+~~~java
+List list=new ArrayList();
+~~~
+
+因为这样很可能让我们的错误代码逃过编译器的检查，导致运行时出现异常。
+
+~~~java
+public class Test {
+    public static void main(String[] args) {
+        List list=new ArrayList<>();
+        list.add(0);
+        list.add(1L);
+        list.add(2D);
+        list.add("3str");
+        System.out.println(list);
+    }
+}
+// [0, 1, 2.0, 3str]
+~~~
+
+因为`List`底层是一个`Object[]`，因此允许我们添加任意类型的元素。但是这也使得我们更容易出现错误。如果不小心往一个只存放`Integer`类型的集合中添加了一个其他类型，就容易导致运行时异常。
+
+~~~java
+public class Test2 {
+    public static void main(String[] args) {
+        List list=new ArrayList();
+        list.add(1);
+        list.add(2);
+        list.add("str");
+        for (int i = 0; i < list.size(); i++) {
+            Integer num=(Integer) list.get(i); // 类型转换失败
+        }
+    }
+}
+~~~
+
+此外，要注意当我们使用泛型时，如果需要将带有泛型的集合进行传递，比如函数的参数等，对应的参数也需要声明泛型，否则会导致“泛型擦除”。这种情况下编译器不会报错，但是允许时依旧会出现异常。
+
+~~~java
+public class Test3 {
+    public static void main(String[] args) {
+        List<Integer> list=new ArrayList<>();
+        add(list,1);
+        add(list,"str");
+        for (Integer i : list) {
+            System.out.println(i);
+        }
+    }
+    private static void add(List list,Object o){
+        list.add(o);
+    }
+}
+~~~
+
