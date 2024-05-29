@@ -31,6 +31,12 @@ public class Q1 {
             if (remainingSum - i < 0) {
                 break;
             }
+            if (remainingSum < i * (n - tempList.size())) {
+                break;
+            }
+            if (remainingSum > i + maxVal * (n - tempList.size() - 1)) {
+                continue;
+            }
             tempList.add(i);
             backTrack(result, tempList, remainingSum - i, n, i, maxVal);
             tempList.remove(tempList.size() - 1);
