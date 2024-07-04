@@ -1,2 +1,2 @@
 # leetcode
-daily leetcode
+daily leetcode~
